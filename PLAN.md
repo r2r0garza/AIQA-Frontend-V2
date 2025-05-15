@@ -55,22 +55,24 @@
 - ✅ Show loading indicator while sending.
 
 ### 2.5 Response Utilities
-- Add a "Copy to Clipboard" button for the AI's response.
-- Allow users to easily copy the entire response or selected portions.
-- Show visual feedback when content is copied.
+- ✅ Add a "Copy to Clipboard" button for the AI's response.
+- ✅ Allow users to easily copy the entire response or selected portions.
+- ✅ Show visual feedback when content is copied.
 
 ---
 
 ## Phase 3: External Service Integrations
 
 ### 3.1 Jira Integration
-- UI for entering Jira credentials/config.
-- Connect/disconnect logic.
-- Show connection status.
-- (Stub or implement basic API calls as needed.)
+- ✅ UI for entering Jira credentials/config (modal window, fields are: Jira Server URL, User Email and Access Token).
+  - ✅ Jira Server URL will be something like "https://my-jira.atlassian.net", we will add the /rest/api/3/{endpoint} ourselves, where {endpoint} can be project or search, depending if the user is selecting a project to view the stories inside the project or if the user is selecting a story itself to import to the user message text area.
+- ✅ Connect/disconnect logic.
+- ✅ Show connection status.
+- ✅ (Stub or implement basic API calls as needed.)
 
 ### 3.2 Azure DevOps (ADO) Integration
-- UI for entering ADO credentials/config.
+- UI for entering ADO credentials/config (modal window, fields are: Jira Server URL, User Email and Access Token).
+  - ADO Server URL will be something like "https://perficient-msftesp.visualstudio.com", we will add the /_apis/projects?api-version=7.1 ourselves to pull data from ADO items into the user message text area.
 - Connect/disconnect logic.
 - Show connection status.
 - (Stub or implement basic API calls as needed.)
