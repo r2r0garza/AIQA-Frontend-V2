@@ -7,19 +7,43 @@ import {
   ListItem, 
   ListItemButton, 
   ListItemText, 
-  Typography
+  Typography,
+  Switch,
+  FormControlLabel,
+  Button,
+  Checkbox,
+  Tooltip
 } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import CloseIcon from '@mui/icons-material/Close';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 
 // Image dimming percentage - adjust this value to control the image brightness
 // 0% = no dimming (full brightness), 100% = completely dark
 const IMAGE_DIM_PERCENTAGE = 30; // Currently set to 10% dimming
 
-function AgentSidebar({ open, onToggle, selectedAgent, onSelectAgent, onFileSelect, onFileRemove, agents }) {
+function AgentSidebar({ 
+  open, 
+  onToggle, 
+  selectedAgent, 
+  onSelectAgent, 
+  onFileSelect, 
+  onFileRemove, 
+  agents,
+  chainModeEnabled,
+  onChainModeToggle,
+  selectedAgentsForChain,
+  onAgentChainSelectionToggle,
+  onChainFileSelect,
+  chainFile,
+  onChainFileRemove,
+  onStartChain,
+  isChainRunning
+}) {
   // Calculate the opacity based on the dimming percentage
   // 0% dimming = 1.0 opacity, 100% dimming = 0.0 opacity
   const imageOpacity = 1 - (IMAGE_DIM_PERCENTAGE / 100);
@@ -52,7 +76,7 @@ function AgentSidebar({ open, onToggle, selectedAgent, onSelectAgent, onFileSele
           flexDirection: 'column',
           height: '100%'
         }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 13 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
             <img src="/src/assets/logo.png" alt="Logo" style={{ height: '30px', marginRight: '8px' }} />
             <span style={{ color: 'red', margin: '0 8px', fontSize: '30px' }}>/</span>
             <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#fff', display: 'flex', alignItems: 'center' }}>
@@ -60,12 +84,115 @@ function AgentSidebar({ open, onToggle, selectedAgent, onSelectAgent, onFileSele
             </Typography>
           </Box>
           
+          {/* Chain Mode Toggle and Controls */}
+          <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={chainModeEnabled}
+                    onChange={onChainModeToggle}
+                    disabled={isChainRunning}
+                  />
+                }
+                label="Chain Mode"
+                sx={{ 
+                  '& .MuiFormControlLabel-label': { 
+                    color: '#fff',
+                    fontSize: '0.9rem'
+                  }
+                }}
+              />
+              
+              <Tooltip title={chainFile ? "Change file and run" : "Select file and run"}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  disabled={!chainModeEnabled || isChainRunning || selectedAgentsForChain.length < 2}
+                  onClick={onChainFileSelect}
+                  startIcon={chainFile ? <PlayArrowIcon /> : <UploadFileIcon />}
+                  sx={{
+                    borderColor: 'rgba(255,255,255,0.5)',
+                    color: '#fff',
+                    '&:hover': {
+                      borderColor: '#fff',
+                      backgroundColor: 'rgba(255,255,255,0.1)'
+                    },
+                    '&.Mui-disabled': {
+                      borderColor: 'rgba(255,255,255,0.2)',
+                      color: 'rgba(255,255,255,0.2)'
+                    }
+                  }}
+                >
+                  {chainFile ? "Run" : "Select & Run"}
+                </Button>
+              </Tooltip>
+            </Box>
+            
+            {chainFile && (
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                p: 1, 
+                bgcolor: 'rgba(255,255,255,0.1)', 
+                borderRadius: 1,
+                fontSize: '0.8rem',
+                color: 'rgba(255,255,255,0.8)'
+              }}>
+                <AttachFileIcon sx={{ fontSize: '0.9rem', mr: 1 }} />
+                <Typography variant="body2" sx={{ 
+                  flex: 1, 
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  fontSize: '0.8rem',
+                  color: 'rgba(255,255,255,0.8)'
+                }}>
+                  {chainFile.name}
+                </Typography>
+                <IconButton 
+                  size="small" 
+                  onClick={onChainFileRemove}
+                  disabled={isChainRunning}
+                  sx={{ 
+                    p: 0.5, 
+                    color: 'rgba(255,255,255,0.8)',
+                    '&:hover': {
+                      color: '#fff'
+                    }
+                  }}
+                >
+                  <CloseIcon sx={{ fontSize: '0.8rem' }} />
+                </IconButton>
+              </Box>
+            )}
+          </Box>
+          
           <List sx={{ p: 0, flex: 1 }}>
             {agents.filter(agent => !agent.hidden).map((agent) => (
               <ListItem key={agent.id} disablePadding sx={{ mb: 2 }}>
+                {chainModeEnabled && (
+                  <Checkbox
+                    checked={selectedAgentsForChain.includes(agent.id)}
+                    onChange={() => onAgentChainSelectionToggle(agent.id)}
+                    disabled={isChainRunning}
+                    sx={{
+                      color: 'rgba(255,255,255,0.5)',
+                      '&.Mui-checked': {
+                        color: '#fff',
+                      },
+                      '&.Mui-disabled': {
+                        color: 'rgba(255,255,255,0.2)',
+                      },
+                      padding: '4px',
+                      marginRight: '4px'
+                    }}
+                  />
+                )}
                 <ListItemButton
                   selected={selectedAgent?.id === agent.id}
                   onClick={() => onSelectAgent(agent)}
+                  disabled={chainModeEnabled}
                   sx={{
                     borderRadius: '4px',
                     bgcolor: 'transparent',
@@ -73,6 +200,7 @@ function AgentSidebar({ open, onToggle, selectedAgent, onSelectAgent, onFileSele
                     border: '1px solid #fff',
                     display: 'flex',
                     justifyContent: 'space-between',
+                    flex: 1,
                     '&.Mui-selected': {
                       backgroundColor: 'rgba(255,255,255,0.2)',
                       color: '#fff',
@@ -83,6 +211,11 @@ function AgentSidebar({ open, onToggle, selectedAgent, onSelectAgent, onFileSele
                     '&:hover': {
                       backgroundColor: 'rgba(255,255,255,0.1)',
                     },
+                    '&.Mui-disabled': {
+                      opacity: 0.6,
+                      color: 'rgba(255,255,255,0.5)',
+                      borderColor: 'rgba(255,255,255,0.5)',
+                    }
                   }}
                 >
                   <ListItemText primary={agent.name} />

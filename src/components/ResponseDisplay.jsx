@@ -1,13 +1,38 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Box, Paper, Typography, IconButton, Tooltip, Snackbar, Alert } from '@mui/material';
+import { 
+  Box, 
+  Paper, 
+  Typography, 
+  IconButton, 
+  Tooltip, 
+  Snackbar, 
+  Alert,
+  Button,
+  Divider,
+  LinearProgress,
+  Chip
+} from '@mui/material';
+import { AGENTS } from '../constants';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import DownloadIcon from '@mui/icons-material/Download';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
-function ResponseDisplay({ selectedAgent, aiResponse, rightOpen }) {
+function ResponseDisplay({ 
+  selectedAgent, 
+  aiResponse, 
+  rightOpen,
+  chainResults,
+  isChainRunning,
+  currentChainStep,
+  selectedAgentsForChain,
+  chainModeEnabled,
+  onDownloadResult
+}) {
   const [copySuccess, setCopySuccess] = useState(false);
   const [copyMessage, setCopyMessage] = useState('Response copied to clipboard!');
   const [selectionPosition, setSelectionPosition] = useState(null);
@@ -111,7 +136,7 @@ function ResponseDisplay({ selectedAgent, aiResponse, rightOpen }) {
     };
   }, []);
 
-  if (!selectedAgent) {
+  if (!selectedAgent && !chainModeEnabled) {
     return (
       <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Paper sx={{ p: 4, minWidth: 320, minHeight: 200, textAlign: 'center' }}>
@@ -123,6 +148,94 @@ function ResponseDisplay({ selectedAgent, aiResponse, rightOpen }) {
       </Box>
     );
   }
+  
+  // Render chain progress and results
+  const renderChainContent = () => {
+    if (!chainModeEnabled) return null;
+    
+    return (
+      <Box sx={{ mb: 4 }}>
+        {isChainRunning && (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h6" sx={{ mb: 1 }}>Chain Process Running</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+              <Typography variant="body2" sx={{ mr: 1 }}>
+                Step {currentChainStep + 1} of {selectedAgentsForChain.length}
+              </Typography>
+              <Typography variant="body2" sx={{ color: 'text.secondary', flex: 1 }}>
+                {selectedAgentsForChain.map((agentId, index) => {
+                  const agent = AGENTS.find(a => a.id === agentId);
+                  return (
+                    <span key={agentId}>
+                      {index > 0 && " → "}
+                      <span style={{ 
+                        fontWeight: index === currentChainStep ? 'bold' : 'normal',
+                        color: index === currentChainStep ? '#1976d2' : 'inherit'
+                      }}>
+                        {agent?.name || agentId}
+                      </span>
+                    </span>
+                  );
+                })}
+              </Typography>
+            </Box>
+            <LinearProgress />
+          </Box>
+        )}
+        
+        {chainResults.length > 0 && !isChainRunning && (
+          <Box sx={{ 
+            mb: 2, 
+            p: 2, 
+            bgcolor: '#f9f9f9', 
+            border: '1px solid #eee', 
+            borderRadius: 1,
+            maxHeight: '200px',
+            overflow: 'auto'
+          }}>
+            <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'bold' }}>Chain Results</Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {chainResults.map((result, index) => {
+                const agent = AGENTS.find(a => a.id === result.agentId);
+                const isExcelFormat = result.agentId === 'test-cases-generator' || result.agentId === 'test-data-generator';
+                
+                return (
+                  <Box 
+                    key={index} 
+                    sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center',
+                      p: 1,
+                      border: '1px solid #e0e0e0',
+                      borderRadius: 1,
+                      bgcolor: '#fff',
+                      minWidth: '250px',
+                      flexGrow: 1
+                    }}
+                  >
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                        Step {index + 1}: {agent?.name || result.agentId}
+                      </Typography>
+                    </Box>
+                    <Tooltip title={`Download as ${isExcelFormat ? 'Excel' : 'Word'} document`}>
+                      <IconButton
+                        size="small"
+                        onClick={() => onDownloadResult(result.response, result.agentId, index)}
+                        color="primary"
+                      >
+                        <FileDownloadIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                );
+              })}
+            </Box>
+          </Box>
+        )}
+      </Box>
+    );
+  };
 
   return (
     <Box sx={{ 
@@ -132,8 +245,11 @@ function ResponseDisplay({ selectedAgent, aiResponse, rightOpen }) {
       height: 'calc(100vh - 120px)', // Adjust height to account for input area
       display: 'flex',
       flexDirection: 'column',
-      position: 'relative' // Add position relative to the container
+      position: 'relative', // Add position relative to the container
+      pb: 10 // Add extra padding at the bottom to prevent content from being obscured by the message input
     }}>
+      {/* Chain mode content */}
+      {renderChainContent()}
       {/* Fixed copy button outside the response box */}
       {aiResponse && (
         <Tooltip title="Copy formatted response">

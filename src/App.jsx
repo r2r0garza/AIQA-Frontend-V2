@@ -1,7 +1,10 @@
 import React, { useState, useRef } from 'react';
 import axios from 'axios';
-import { Box } from '@mui/material';
+import { Box, Snackbar, Alert } from '@mui/material';
 import { JiraProvider } from './contexts/JiraContext';
+import { saveAs } from 'file-saver';
+import { Document, Packer, Paragraph, TextRun } from 'docx';
+import * as XLSX from 'xlsx';
 
 // Function to generate simulated responses for demo purposes
 const generateSimulatedResponse = (agentId, message) => {
@@ -52,6 +55,18 @@ function App() {
   const [agents, setAgents] = useState(JSON.parse(JSON.stringify(AGENTS)));
   const fileInputRef = useRef(null);
   const [currentAgentForFileUpload, setCurrentAgentForFileUpload] = useState(null);
+  
+  // Chain mode state
+  const [chainModeEnabled, setChainModeEnabled] = useState(false);
+  const [selectedAgentsForChain, setSelectedAgentsForChain] = useState([]);
+  const [chainFile, setChainFile] = useState(null);
+  const [isChainRunning, setIsChainRunning] = useState(false);
+  const [chainResults, setChainResults] = useState([]);
+  const [currentChainStep, setCurrentChainStep] = useState(0);
+  const chainFileInputRef = useRef(null);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState('info');
 
   // Handle agent selection
   const handleSelectAgent = (agent) => {
@@ -61,6 +76,562 @@ function App() {
       setUserMessage(''); // Clear user message when changing agents
     }
     setSelectedAgent(agent);
+  };
+  
+  // Handle chain mode toggle
+  const handleChainModeToggle = (event) => {
+    const isEnabled = event.target.checked;
+    setChainModeEnabled(isEnabled);
+    
+    // Clear selected agents when disabling chain mode
+    if (!isEnabled) {
+      setSelectedAgentsForChain([]);
+      setChainFile(null);
+      setChainResults([]);
+    }
+  };
+  
+  // Handle agent selection for chain
+  const handleAgentChainSelectionToggle = (agentId) => {
+    setSelectedAgentsForChain(prev => {
+      if (prev.includes(agentId)) {
+        return prev.filter(id => id !== agentId);
+      } else {
+        return [...prev, agentId];
+      }
+    });
+  };
+  
+  // Handle chain file selection
+  const handleChainFileSelect = () => {
+    if (selectedAgentsForChain.length < 2) {
+      showSnackbar('Please select at least two agents for the chain', 'warning');
+      return;
+    }
+    
+    if (chainFile) {
+      // If file already selected, start the chain process
+      handleStartChain();
+    } else {
+      // Otherwise, open file selector
+      chainFileInputRef.current.click();
+    }
+  };
+  
+  // Handle chain file change
+  const handleChainFileChange = (event) => {
+    if (event.target.files && event.target.files[0]) {
+      setChainFile(event.target.files[0]);
+    }
+  };
+  
+  // Handle chain file removal
+  const handleChainFileRemove = () => {
+    setChainFile(null);
+    if (chainFileInputRef.current) {
+      chainFileInputRef.current.value = '';
+    }
+  };
+  
+  // Show snackbar message
+  const showSnackbar = (message, severity = 'info') => {
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
+  };
+  
+  // Handle snackbar close
+  const handleSnackbarClose = () => {
+    setSnackbarOpen(false);
+  };
+  
+  // Convert markdown table to Excel data
+  const convertMarkdownTableToExcel = (markdown) => {
+    // Extract table content
+    const tableRegex = /\|(.+)\|/g;
+    const rows = markdown.match(tableRegex);
+    
+    if (!rows || rows.length < 2) {
+      return null;
+    }
+    
+    // Process header row
+    const headerRow = rows[0].split('|').filter(cell => cell.trim() !== '').map(cell => cell.trim());
+    
+    // Skip separator row (row[1] with ----)
+    
+    // Process data rows
+    const dataRows = rows.slice(2).map(row => 
+      row.split('|').filter(cell => cell.trim() !== '').map(cell => cell.trim())
+    );
+    
+    // Create worksheet
+    const worksheet = XLSX.utils.aoa_to_sheet([headerRow, ...dataRows]);
+    
+    // Create workbook
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
+    
+    return workbook;
+  };
+  
+  // Convert markdown to Word document
+  const convertMarkdownToDocx = (markdown) => {
+    try {
+      const children = [];
+      
+      // Process markdown line by line
+      const lines = markdown.split('\n');
+      let inList = false;
+      let inCodeBlock = false;
+      let codeContent = '';
+      let tableRows = [];
+      let inTable = false;
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        
+        // Handle code blocks
+        if (line.startsWith('```')) {
+          if (inCodeBlock) {
+            // End of code block
+            children.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: codeContent,
+                    font: 'Courier New',
+                    size: 20
+                  })
+                ],
+                shading: {
+                  type: 'solid',
+                  color: 'F5F5F5'
+                },
+                spacing: {
+                  before: 200,
+                  after: 200
+                }
+              })
+            );
+            codeContent = '';
+            inCodeBlock = false;
+          } else {
+            // Start of code block
+            inCodeBlock = true;
+          }
+          continue;
+        }
+        
+        if (inCodeBlock) {
+          codeContent += line + '\n';
+          continue;
+        }
+        
+        // Handle headers
+        if (line.startsWith('# ')) {
+          children.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: line.substring(2),
+                  bold: true,
+                  size: 36
+                })
+              ],
+              spacing: {
+                before: 400,
+                after: 200
+              }
+            })
+          );
+        } else if (line.startsWith('## ')) {
+          children.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: line.substring(3),
+                  bold: true,
+                  size: 32
+                })
+              ],
+              spacing: {
+                before: 300,
+                after: 150
+              }
+            })
+          );
+        } else if (line.startsWith('### ')) {
+          children.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: line.substring(4),
+                  bold: true,
+                  size: 28
+                })
+              ],
+              spacing: {
+                before: 200,
+                after: 100
+              }
+            })
+          );
+        } 
+        // Handle bullet points
+        else if (line.startsWith('- ') || line.startsWith('* ')) {
+          children.push(
+            new Paragraph({
+              bullet: {
+                level: 0
+              },
+              children: [
+                new TextRun(line.substring(2))
+              ]
+            })
+          );
+          inList = true;
+        } 
+        // Handle numbered lists
+        else if (/^\d+\.\s/.test(line)) {
+          const textContent = line.replace(/^\d+\.\s/, '');
+          children.push(
+            new Paragraph({
+              numbering: {
+                reference: 'default-numbering',
+                level: 0
+              },
+              children: [
+                new TextRun(textContent)
+              ]
+            })
+          );
+        }
+        // Handle empty lines
+        else if (line.trim() === '') {
+          children.push(new Paragraph({}));
+          inList = false;
+        } 
+        // Handle bold text
+        else if (line.includes('**') || line.includes('__')) {
+          const parts = line.split(/(\*\*.*?\*\*|__.*?__)/g);
+          const runs = parts.map(part => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+              return new TextRun({
+                text: part.substring(2, part.length - 2),
+                bold: true
+              });
+            } else if (part.startsWith('__') && part.endsWith('__')) {
+              return new TextRun({
+                text: part.substring(2, part.length - 2),
+                bold: true
+              });
+            } else {
+              return new TextRun(part);
+            }
+          });
+          
+          children.push(
+            new Paragraph({
+              children: runs
+            })
+          );
+        } 
+        // Handle regular text
+        else {
+          children.push(
+            new Paragraph({
+              children: [new TextRun(line)]
+            })
+          );
+        }
+      }
+      
+      // Create the document with all processed elements
+      const doc = new Document({
+        numbering: {
+          config: [
+            {
+              reference: 'default-numbering',
+              levels: [
+                {
+                  level: 0,
+                  format: 'decimal',
+                  text: '%1.',
+                  alignment: 'start',
+                  style: {
+                    paragraph: {
+                      indent: { left: 720, hanging: 260 }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        sections: [{
+          properties: {},
+          children: children
+        }]
+      });
+      
+      return doc;
+    } catch (error) {
+      console.error('Error converting markdown to docx:', error);
+      
+      // Create a simple document with the markdown content
+      try {
+        const doc = new Document({
+          sections: [{
+            properties: {},
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: 'Document Content:',
+                    bold: true,
+                    size: 28
+                  })
+                ],
+                spacing: {
+                  after: 200
+                }
+              }),
+              ...markdown.split('\n').map(line => 
+                new Paragraph({
+                  children: [new TextRun(line)]
+                })
+              )
+            ]
+          }]
+        });
+        
+        return doc;
+      } catch (fallbackError) {
+        console.error('Fallback document creation failed:', fallbackError);
+        
+        // Last resort - create minimal document
+        const doc = new Document({
+          sections: [{
+            properties: {},
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: 'Error creating formatted document. Content is provided below:',
+                    bold: true
+                  })
+                ]
+              }),
+              new Paragraph({
+                children: [new TextRun(markdown)]
+              })
+            ]
+          }]
+        });
+        
+        return doc;
+      }
+    }
+  };
+  
+  // Download result as file
+  const downloadResult = async (result, agentId, index) => {
+    try {
+      const agent = AGENTS.find(a => a.id === agentId);
+      const fileName = `${agent.name.replace(/\s+/g, '_')}_${index + 1}`;
+      
+      // Determine file type based on agent
+      if (agentId === 'test-cases-generator' || agentId === 'test-data-generator') {
+        // Excel format
+        const workbook = convertMarkdownTableToExcel(result);
+        if (workbook) {
+          const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+          const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          saveAs(blob, `${fileName}.xlsx`);
+          showSnackbar(`Downloaded ${fileName}.xlsx`, 'success');
+        } else {
+          showSnackbar('Could not convert to Excel format', 'error');
+        }
+      } else {
+        // Word format - wrap in try/catch to handle errors
+        try {
+          // Create the document
+          const doc = convertMarkdownToDocx(result);
+
+          // Pack the document to a blob (browser compatible)
+          const blob = await Packer.toBlob(doc);
+
+          // Save the blob as a file
+          saveAs(blob, `${fileName}.docx`);
+          showSnackbar(`Downloaded ${fileName}.docx`, 'success');
+        } catch (docxError) {
+          // Enhanced error logging for debugging
+          let errorMsg = '';
+          if (docxError instanceof Error) {
+            errorMsg = docxError.stack || docxError.message || String(docxError);
+          } else {
+            errorMsg = JSON.stringify(docxError);
+          }
+          // Show the error in the snackbar for debugging
+          showSnackbar(`DOCX error: ${errorMsg}`, 'error');
+          console.error('Error creating docx:', errorMsg);
+
+          // Try one more time with a simpler approach
+          try {
+            const simpleDoc = new Document({
+              sections: [{
+                properties: {},
+                children: [
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: result,
+                      })
+                    ]
+                  })
+                ]
+              }]
+            });
+
+            const blob = await Packer.toBlob(simpleDoc);
+            saveAs(blob, `${fileName}.docx`);
+            showSnackbar(`Downloaded ${fileName}.docx (simplified format)`, 'info');
+          } catch (retryError) {
+            let retryMsg = '';
+            if (retryError instanceof Error) {
+              retryMsg = retryError.stack || retryError.message || String(retryError);
+            } else {
+              retryMsg = JSON.stringify(retryError);
+            }
+            showSnackbar(`DOCX retry error: ${retryMsg}`, 'error');
+            console.error('Retry error creating docx:', retryMsg);
+
+            // Fallback to plain text download if docx creation fails
+            const blob = new Blob([result], { type: 'text/plain' });
+            saveAs(blob, `${fileName}.txt`);
+            showSnackbar(`Downloaded ${fileName}.txt (Word format failed)`, 'warning');
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      
+      // Last resort fallback - download as plain text
+      try {
+        const agent = AGENTS.find(a => a.id === agentId);
+        const fileName = `${agent.name.replace(/\s+/g, '_')}_${index + 1}`;
+        const blob = new Blob([result], { type: 'text/plain' });
+        saveAs(blob, `${fileName}.txt`);
+        showSnackbar(`Downloaded as text file instead`, 'warning');
+      } catch (finalError) {
+        showSnackbar('Error downloading file', 'error');
+      }
+    }
+  };
+  
+  // Start the chain process
+  const handleStartChain = async () => {
+    if (!chainFile || selectedAgentsForChain.length < 2) {
+      showSnackbar('Please select a file and at least two agents', 'warning');
+      return;
+    }
+    
+    setIsChainRunning(true);
+    setChainResults([]);
+    setCurrentChainStep(0);
+    setAiResponse(null);
+    
+    try {
+      let currentInput = chainFile;
+      let results = [];
+      
+      // Process each agent in the chain
+      for (let i = 0; i < selectedAgentsForChain.length; i++) {
+        const agentId = selectedAgentsForChain[i];
+        setCurrentChainStep(i);
+        
+        // Create FormData for the request
+        const formData = new FormData();
+        formData.append('file', currentInput);
+        formData.append('agent', agentId);
+        formData.append('message', ''); // Empty message since we're using file input
+        
+        const webhookUrl = getWebhookUrl(agentId);
+        
+        if (!webhookUrl) {
+          throw new Error(`No webhook URL found for agent: ${agentId}`);
+        }
+        
+        let response;
+        
+        try {
+          // Try to make the actual API call
+          response = await axios.post(webhookUrl, formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          });
+        } catch (apiError) {
+          console.error('API call failed, using simulated response:', apiError);
+          
+          // If the API call fails, fall back to a simulated response
+          const agent = AGENTS.find(a => a.id === agentId);
+          response = {
+            data: {
+              response: generateSimulatedResponse(agentId, `Processing file: ${chainFile.name}`)
+            }
+          };
+        }
+        
+        // Extract response text
+        let responseText;
+        if (response.data && response.data.response) {
+          responseText = response.data.response;
+        } else if (response.data && typeof response.data === 'string') {
+          responseText = response.data;
+        } else if (response.data && (response.data.text || response.data.content || response.data.message || response.data.result)) {
+          responseText = response.data.text || response.data.content || response.data.message || response.data.result;
+        } else {
+          responseText = JSON.stringify(response.data);
+        }
+        
+        // Store the result
+        results.push({
+          agentId,
+          response: responseText
+        });
+        
+        // Convert the response to a file for the next agent
+        if (i < selectedAgentsForChain.length - 1) {
+          // Create a text file from the response
+          const blob = new Blob([responseText], { type: 'text/plain' });
+          const fileName = `chain_step_${i + 1}.txt`;
+          currentInput = new File([blob], fileName, { type: 'text/plain' });
+        }
+      }
+      
+      // Update state with all results
+      setChainResults(results);
+      
+      // Display the final result
+      if (results.length > 0) {
+        setAiResponse(
+          `# Chain Process Results\n\n` +
+          results.map((result, index) => {
+            const agent = AGENTS.find(a => a.id === result.agentId);
+            return `## Step ${index + 1}: ${agent.name}\n\n${result.response}`;
+          }).join('\n\n---\n\n')
+        );
+      }
+      
+      showSnackbar('Chain process completed successfully', 'success');
+    } catch (error) {
+      console.error('Error in chain process:', error);
+      showSnackbar(`Chain process error: ${error.message}`, 'error');
+    } finally {
+      setIsChainRunning(false);
+    }
   };
 
   // Handle file selection for a specific agent
@@ -262,6 +833,15 @@ ${issue.description ? `**Description:**\n${issue.description}` : ''}
           onFileSelect={handleFileSelect}
           onFileRemove={handleRemoveFile}
           agents={agents}
+          chainModeEnabled={chainModeEnabled}
+          onChainModeToggle={handleChainModeToggle}
+          selectedAgentsForChain={selectedAgentsForChain}
+          onAgentChainSelectionToggle={handleAgentChainSelectionToggle}
+          onChainFileSelect={handleChainFileSelect}
+          chainFile={chainFile}
+          onChainFileRemove={handleChainFileRemove}
+          onStartChain={handleStartChain}
+          isChainRunning={isChainRunning}
         />
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', bgcolor: '#fff' }}>
@@ -269,12 +849,25 @@ ${issue.description ? `**Description:**\n${issue.description}` : ''}
               selectedAgent={selectedAgent}
               aiResponse={aiResponse}
               rightOpen={rightOpen}
+              chainResults={chainResults}
+              isChainRunning={isChainRunning}
+              currentChainStep={currentChainStep}
+              selectedAgentsForChain={selectedAgentsForChain}
+              chainModeEnabled={chainModeEnabled}
+              onDownloadResult={downloadResult}
             />
             
             <input
               type="file"
               ref={fileInputRef}
               onChange={handleFileChange}
+              style={{ display: 'none' }}
+            />
+            
+            <input
+              type="file"
+              ref={chainFileInputRef}
+              onChange={handleChainFileChange}
               style={{ display: 'none' }}
             />
             
@@ -297,6 +890,20 @@ ${issue.description ? `**Description:**\n${issue.description}` : ''}
           onToggle={() => setRightOpen((v) => !v)} 
           onJiraIssueSelect={handleJiraIssueSelect}
         />
+        <Snackbar
+          open={snackbarOpen}
+          autoHideDuration={6000}
+          onClose={handleSnackbarClose}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert 
+            onClose={handleSnackbarClose} 
+            severity={snackbarSeverity} 
+            sx={{ width: '100%' }}
+          >
+            {snackbarMessage}
+          </Alert>
+        </Snackbar>
       </Box>
     </JiraProvider>
   );
