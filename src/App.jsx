@@ -150,51 +150,49 @@ function App() {
     // Extract table content
     const tableRegex = /\|(.+)\|/g;
     const rows = markdown.match(tableRegex);
-    
+
     if (!rows || rows.length < 2) {
       return null;
     }
-    
+
     // Process header row
     const headerRow = rows[0].split('|').filter(cell => cell.trim() !== '').map(cell => cell.trim());
-    
-    // Skip separator row (row[1] with ----)
-    
-    // Process data rows
-    const dataRows = rows.slice(2).map(row => 
-      row.split('|').filter(cell => cell.trim() !== '').map(cell => cell.trim())
+
+    // Process data rows, replacing <br> with newlines
+    const dataRows = rows.slice(2).map(row =>
+      row.split('|').filter(cell => cell.trim() !== '').map(cell =>
+        cell.trim().replace(/<br\s*\/?>/gi, '\n')
+      )
     );
-    
+
     // Create worksheet
     const worksheet = XLSX.utils.aoa_to_sheet([headerRow, ...dataRows]);
-    
+
     // Create workbook
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
-    
+
     return workbook;
   };
   
   // Convert markdown to Word document
   const convertMarkdownToDocx = (markdown) => {
     try {
+      const { Table, TableRow, TableCell } = require("docx");
       const children = [];
-      
-      // Process markdown line by line
       const lines = markdown.split('\n');
       let inList = false;
       let inCodeBlock = false;
       let codeContent = '';
       let tableRows = [];
       let inTable = false;
-      
+
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        
+
         // Handle code blocks
         if (line.startsWith('```')) {
           if (inCodeBlock) {
-            // End of code block
             children.push(
               new Paragraph({
                 children: [
@@ -217,17 +215,60 @@ function App() {
             codeContent = '';
             inCodeBlock = false;
           } else {
-            // Start of code block
             inCodeBlock = true;
           }
           continue;
         }
-        
         if (inCodeBlock) {
           codeContent += line + '\n';
           continue;
         }
-        
+
+        // Handle tables
+        if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+          inTable = true;
+          tableRows.push(line.trim());
+          continue;
+        } else if (inTable && (!line.trim().startsWith('|') || !line.trim().endsWith('|'))) {
+          // End of table, process tableRows
+          if (tableRows.length >= 2) {
+            // Remove separator row (second row)
+            const header = tableRows[0].split('|').slice(1, -1).map(cell => cell.trim());
+            const rows = tableRows.slice(2).map(row =>
+              row.split('|').slice(1, -1).map(cell => cell.trim())
+            );
+            children.push(
+              new Table({
+                rows: [
+                  new TableRow({
+                    children: header.map(cell =>
+                      new TableCell({
+                        children: [new Paragraph({ children: [new TextRun({ text: cell, bold: true })] })]
+                      })
+                    )
+                  }),
+                  ...rows.map(row =>
+                    new TableRow({
+                      children: row.map(cell =>
+                        new TableCell({
+                          children: [new Paragraph(cell)]
+                        })
+                      )
+                    })
+                  )
+                ]
+              })
+            );
+          }
+          tableRows = [];
+          inTable = false;
+        }
+
+        if (inTable) {
+          tableRows.push(line.trim());
+          continue;
+        }
+
         // Handle headers
         if (line.startsWith('# ')) {
           children.push(
@@ -277,7 +318,7 @@ function App() {
               }
             })
           );
-        } 
+        }
         // Handle bullet points
         else if (line.startsWith('- ') || line.startsWith('* ')) {
           children.push(
@@ -291,7 +332,7 @@ function App() {
             })
           );
           inList = true;
-        } 
+        }
         // Handle numbered lists
         else if (/^\d+\.\s/.test(line)) {
           const textContent = line.replace(/^\d+\.\s/, '');
@@ -311,42 +352,64 @@ function App() {
         else if (line.trim() === '') {
           children.push(new Paragraph({}));
           inList = false;
-        } 
-        // Handle bold text
-        else if (line.includes('**') || line.includes('__')) {
-          const parts = line.split(/(\*\*.*?\*\*|__.*?__)/g);
-          const runs = parts.map(part => {
-            if (part.startsWith('**') && part.endsWith('**')) {
-              return new TextRun({
-                text: part.substring(2, part.length - 2),
-                bold: true
-              });
-            } else if (part.startsWith('__') && part.endsWith('__')) {
-              return new TextRun({
-                text: part.substring(2, part.length - 2),
-                bold: true
-              });
-            } else {
-              return new TextRun(part);
+        }
+        // Handle bold/italic/inline code
+        else {
+          // Replace inline code
+          let processed = line.replace(/`([^`]+)`/g, (match, p1) => `«code:${p1}»`);
+          // Replace bold
+          processed = processed.replace(/\*\*([^\*]+)\*\*/g, '«bold:$1»');
+          processed = processed.replace(/__([^_]+)__/g, '«bold:$1»');
+          // Replace italic
+          processed = processed.replace(/\*([^\*]+)\*/g, '«italic:$1»');
+          processed = processed.replace(/_([^_]+)_/g, '«italic:$1»');
+
+          // Split by custom tokens
+          const runs = [];
+          let buffer = '';
+          let mode = null;
+          for (let j = 0; j < processed.length; j++) {
+            if (processed.startsWith('«bold:', j)) {
+              if (buffer) runs.push(new TextRun(buffer));
+              buffer = '';
+              mode = 'bold';
+              j += 5;
+              continue;
             }
-          });
-          
+            if (processed.startsWith('«italic:', j)) {
+              if (buffer) runs.push(new TextRun(buffer));
+              buffer = '';
+              mode = 'italic';
+              j += 7;
+              continue;
+            }
+            if (processed.startsWith('«code:', j)) {
+              if (buffer) runs.push(new TextRun(buffer));
+              buffer = '';
+              mode = 'code';
+              j += 6;
+              continue;
+            }
+            if (processed[j] === '»') {
+              if (mode === 'bold') runs.push(new TextRun({ text: buffer, bold: true }));
+              else if (mode === 'italic') runs.push(new TextRun({ text: buffer, italics: true }));
+              else if (mode === 'code') runs.push(new TextRun({ text: buffer, font: 'Courier New', shading: { type: 'clear', color: 'F5F5F5' } }));
+              buffer = '';
+              mode = null;
+              continue;
+            }
+            buffer += processed[j];
+          }
+          if (buffer) runs.push(new TextRun(buffer));
+
           children.push(
             new Paragraph({
               children: runs
             })
           );
-        } 
-        // Handle regular text
-        else {
-          children.push(
-            new Paragraph({
-              children: [new TextRun(line)]
-            })
-          );
         }
       }
-      
+
       // Create the document with all processed elements
       const doc = new Document({
         numbering: {
@@ -374,30 +437,18 @@ function App() {
           children: children
         }]
       });
-      
+
       return doc;
     } catch (error) {
       console.error('Error converting markdown to docx:', error);
-      
-      // Create a simple document with the markdown content
+
+      // Create a simple document with the markdown content (no heading at all)
       try {
         const doc = new Document({
           sections: [{
             properties: {},
             children: [
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: 'Document Content:',
-                    bold: true,
-                    size: 28
-                  })
-                ],
-                spacing: {
-                  after: 200
-                }
-              }),
-              ...markdown.split('\n').map(line => 
+              ...markdown.split('\n').map(line =>
                 new Paragraph({
                   children: [new TextRun(line)]
                 })
@@ -405,11 +456,11 @@ function App() {
             ]
           }]
         });
-        
+
         return doc;
       } catch (fallbackError) {
         console.error('Fallback document creation failed:', fallbackError);
-        
+
         // Last resort - create minimal document
         const doc = new Document({
           sections: [{
@@ -429,7 +480,7 @@ function App() {
             ]
           }]
         });
-        
+
         return doc;
       }
     }
@@ -546,25 +597,38 @@ function App() {
       let currentInput = chainFile;
       let results = [];
       
+      // Map agentId to default chain message
+      const agentChainMessages = {
+        'user-story-creator': 'create all possible user stories',
+        'acceptance-criteria-creator': 'create all possible acceptance criteria',
+        'test-cases-generator': 'create all possible test cases',
+        'automation-script-generator': 'create all possible automation scripts',
+        'test-data-generator': 'create all possible test data',
+        'language-detector': 'detect all possible languages'
+      };
+
       // Process each agent in the chain
       for (let i = 0; i < selectedAgentsForChain.length; i++) {
         const agentId = selectedAgentsForChain[i];
         setCurrentChainStep(i);
-        
+
+        // Use the mapped message for each agent
+        const chainMessage = agentChainMessages[agentId] || '';
+
         // Create FormData for the request
         const formData = new FormData();
         formData.append('file', currentInput);
         formData.append('agent', agentId);
-        formData.append('message', ''); // Empty message since we're using file input
-        
+        formData.append('message', chainMessage);
+
         const webhookUrl = getWebhookUrl(agentId);
-        
+
         if (!webhookUrl) {
           throw new Error(`No webhook URL found for agent: ${agentId}`);
         }
-        
+
         let response;
-        
+
         try {
           // Try to make the actual API call
           response = await axios.post(webhookUrl, formData, {
@@ -574,16 +638,16 @@ function App() {
           });
         } catch (apiError) {
           console.error('API call failed, using simulated response:', apiError);
-          
+
           // If the API call fails, fall back to a simulated response
           const agent = AGENTS.find(a => a.id === agentId);
           response = {
             data: {
-              response: generateSimulatedResponse(agentId, `Processing file: ${chainFile.name}`)
+              response: generateSimulatedResponse(agentId, chainMessage)
             }
           };
         }
-        
+
         // Extract response text
         let responseText;
         if (response.data && response.data.response) {
@@ -595,13 +659,13 @@ function App() {
         } else {
           responseText = JSON.stringify(response.data);
         }
-        
+
         // Store the result
         results.push({
           agentId,
           response: responseText
         });
-        
+
         // Convert the response to a file for the next agent
         if (i < selectedAgentsForChain.length - 1) {
           // Create a text file from the response
