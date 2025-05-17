@@ -8,15 +8,18 @@ import {
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import JiraIntegration from './integrations/JiraIntegration';
+import SupabaseIntegration from './integrations/SupabaseIntegration';
+import { useSupabase } from '../contexts/SupabaseContext';
 
 function ServiceSidebar({ open, onToggle, onJiraIssueSelect }) {
+  const { isConnected } = useSupabase();
   return (
     <Box sx={{ position: 'relative', height: '100vh', margin: 0, padding: 0 }}>
       <Paper
         elevation={3}
         sx={{
-          width: open ? 260 : 0,
-          minWidth: open ? 260 : 0,
+          width: open ? 290 : 0,
+          minWidth: open ? 290 : 0,
           transition: 'width 0.2s',
           overflow: 'hidden',
           display: 'flex',
@@ -39,10 +42,8 @@ function ServiceSidebar({ open, onToggle, onJiraIssueSelect }) {
           
           <Divider sx={{ my: 2, borderColor: 'rgba(255,255,255,0.1)' }} />
           
-          {/* Placeholder for future integrations */}
-          <Box sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.875rem' }}>
-            More integrations coming soon...
-          </Box>
+          {/* Supabase Integration */}
+          <SupabaseIntegration />
         </Box>
       </Paper>
       <Box

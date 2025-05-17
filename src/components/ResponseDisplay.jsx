@@ -237,6 +237,48 @@ function ResponseDisplay({
     );
   };
 
+/**
+ * Preprocesses DOCX-like markdown to proper markdown for better rendering.
+ */
+function formatDocxMarkdown(text) {
+  if (!text) return '';
+
+  // Convert "US-001: Title" and similar to H2
+  text = text.replace(/^([A-Z]+-\d+:\s.*)$/gm, '## $1');
+
+  // Convert lines of === or --- to H1/H2
+  text = text.replace(/^[=]{3,}\s*$/gm, ''); // Remove lines of only ===
+  text = text.replace(/^-{3,}\s*$/gm, '');   // Remove lines of only ---
+
+  // Convert section headers to bold or H3
+  const sectionHeaders = [
+    'User Story:',
+    'Acceptance Criteria:',
+    'Non-Functional Requirements:',
+    'Notes:',
+    'Warnings:',
+    'Suggestions for improvement:'
+  ];
+  sectionHeaders.forEach(header => {
+    // H3 for main sections
+    text = text.replace(new RegExp(`^${header}`, 'gm'), `### ${header.replace(':','')}`);
+  });
+
+  // Numbered lists: ensure they start with "1." etc.
+  text = text.replace(/^(\d+)\.\s+/gm, (m, n) => `${n}. `);
+
+  // Indented sub-items: convert to markdown sub-lists
+  text = text.replace(/^ {2,}- /gm, '  - ');
+
+  // Remove excessive blank lines
+  text = text.replace(/\n{3,}/g, '\n\n');
+
+  // Clean up trailing whitespace
+  text = text.replace(/[ \t]+$/gm, '');
+
+  return text.trim();
+}
+
   return (
     <Box sx={{ 
       flex: 1, 
@@ -347,7 +389,7 @@ function ResponseDisplay({
                   }
                 }}
               >
-                {aiResponse}
+                {formatDocxMarkdown(aiResponse)}
               </ReactMarkdown>
             </div>
           </Box>

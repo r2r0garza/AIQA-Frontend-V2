@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import axios from 'axios';
 import { Box, Snackbar, Alert } from '@mui/material';
 import { JiraProvider } from './contexts/JiraContext';
+import { SupabaseProvider } from './contexts/SupabaseContext';
 import { saveAs } from 'file-saver';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import * as XLSX from 'xlsx';
@@ -874,21 +875,22 @@ ${issue.description ? `**Description:**\n${issue.description}` : ''}
   };
 
   return (
-    <JiraProvider>
-      <Box sx={{ 
-        display: 'flex', 
-        height: '100vh', 
-        width: '100vw', 
-        background: '#fafbfc', 
-        margin: 0, 
-        padding: 0,
-        overflow: 'hidden',
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0
-      }}>
+    <SupabaseProvider>
+      <JiraProvider>
+        <Box sx={{ 
+          display: 'flex', 
+          height: '100vh', 
+          width: '100vw', 
+          background: '#fafbfc', 
+          margin: 0, 
+          padding: 0,
+          overflow: 'hidden',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0
+        }}>
         <AgentSidebar 
           open={leftOpen} 
           onToggle={() => setLeftOpen((v) => !v)} 
@@ -968,8 +970,9 @@ ${issue.description ? `**Description:**\n${issue.description}` : ''}
             {snackbarMessage}
           </Alert>
         </Snackbar>
-      </Box>
-    </JiraProvider>
+        </Box>
+      </JiraProvider>
+    </SupabaseProvider>
   );
 }
 
