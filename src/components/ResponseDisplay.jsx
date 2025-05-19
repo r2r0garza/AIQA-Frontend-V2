@@ -243,6 +243,11 @@ function ResponseDisplay({
 function formatDocxMarkdown(text) {
   if (!text) return '';
 
+  // If the text already starts with markdown headings, don't reformat
+  if (/^\s*#/.test(text)) {
+    return text.trim();
+  }
+
   // Convert "US-001: Title" and similar to H2
   text = text.replace(/^([A-Z]+-\d+:\s.*)$/gm, '## $1');
 
@@ -250,7 +255,7 @@ function formatDocxMarkdown(text) {
   text = text.replace(/^[=]{3,}\s*$/gm, ''); // Remove lines of only ===
   text = text.replace(/^-{3,}\s*$/gm, '');   // Remove lines of only ---
 
-  // Convert section headers to bold or H3
+  // Convert section headers to H3
   const sectionHeaders = [
     'User Story:',
     'Acceptance Criteria:',
@@ -260,7 +265,6 @@ function formatDocxMarkdown(text) {
     'Suggestions for improvement:'
   ];
   sectionHeaders.forEach(header => {
-    // H3 for main sections
     text = text.replace(new RegExp(`^${header}`, 'gm'), `### ${header.replace(':','')}`);
   });
 

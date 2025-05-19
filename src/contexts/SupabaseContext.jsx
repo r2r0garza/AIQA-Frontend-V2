@@ -115,8 +115,58 @@ export function SupabaseProvider({ children }) {
     try {
       setLoading(true);
       setError(null);
-      
-      // Check if the storage bucket exists
+
+      // 1. Send file to parser API first
+      const parserUrl = import.meta.env.VITE_PARSER_URL;
+      const parserUrlXlsx = import.meta.env.VITE_PARSER_URL_XLSX;
+      let documentText = '';
+      const fileNameLower = file.name.toLowerCase();
+      const isXlsx = fileNameLower.endsWith('.xlsx');
+      let usedParserUrl = parserUrl;
+
+      if (isXlsx && parserUrlXlsx) {
+        usedParserUrl = parserUrlXlsx;
+      }
+
+      if (usedParserUrl) {
+        const formData = new FormData();
+        formData.append('file', file);
+        let parserRes;
+        try {
+          parserRes = await fetch(usedParserUrl, {
+            method: 'POST',
+            body: formData
+          });
+        } catch (fetchErr) {
+          throw new Error(`Failed to fetch parser API: ${fetchErr.message || fetchErr}`);
+        }
+        if (!parserRes.ok) {
+          let errMsg = `Failed to parse document before upload (status ${parserRes.status})`;
+          try {
+            const errText = await parserRes.text();
+            errMsg += `: ${errText}`;
+          } catch {}
+          throw new Error(errMsg);
+        }
+        let parserData;
+        if (isXlsx) {
+          // XLSX endpoint returns raw markdown, not JSON
+          const markdown = await parserRes.text();
+          console.log('Parser API XLSX markdown response:', markdown);
+          documentText = typeof markdown === 'string' ? markdown : '';
+        } else {
+          // Other endpoints return JSON
+          parserData = await parserRes.json();
+          console.log('Parser API response:', parserData);
+          if (typeof parserData.content === 'string' && parserData.content.trim()) {
+            documentText = parserData.content;
+          } else {
+            documentText = '';
+          }
+        }
+      }
+
+      // 2. Check if the storage bucket exists
       const { data: buckets, error: bucketsError } = await supabase
         .storage
         .listBuckets();
@@ -139,10 +189,10 @@ export function SupabaseProvider({ children }) {
         }
       }
       
-      // Create a unique file name
+      // 3. Create a unique file name
       const fileName = `${Date.now()}_${file.name}`;
       
-      // Upload file to Supabase Storage
+      // 4. Upload file to Supabase Storage
       const { data: fileData, error: uploadError } = await supabase
         .storage
         .from('documentation')
@@ -187,16 +237,17 @@ export function SupabaseProvider({ children }) {
           return {
             id: 'temp-' + Date.now(),
             document_type: documentType,
-            document_url: documentUrl
+            document_url: documentUrl,
+            document_text: documentText
           };
         }
       }
       
-      // Insert record into the document table
+      // 5. Insert record into the document table, including document_text
       const { data, error: insertError } = await supabase
         .from('document')
         .insert([
-          { document_type: documentType, document_url: documentUrl }
+          { document_type: documentType, document_url: documentUrl, document_text: documentText }
         ])
         .select();
       
@@ -208,7 +259,8 @@ export function SupabaseProvider({ children }) {
         return {
           id: 'temp-' + Date.now(),
           document_type: documentType,
-          document_url: documentUrl
+          document_url: documentUrl,
+          document_text: documentText
         };
       }
       

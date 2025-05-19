@@ -16,21 +16,29 @@ import DownloadIcon from '@mui/icons-material/Download';
 import { parseDocxContent, extractDocumentTitle } from '../utils/documentParser';
 import ReactMarkdown from 'react-markdown';
 
-function DocumentViewer({ open, onClose, documentUrl }) {
+function DocumentViewer({ open, onClose, documentUrl, documentText }) {
   const [loading, setLoading] = useState(false);
   const [content, setContent] = useState('');
   const [error, setError] = useState('');
   const [title, setTitle] = useState('Document Viewer');
 
   useEffect(() => {
-    if (open && documentUrl) {
-      loadDocument();
-    } else {
-      setContent('');
-      setError('');
-      setTitle('Document Viewer');
+    if (open) {
+      if (documentText) {
+        // If document_text is provided, use it directly
+        setContent(documentText);
+        setTitle(extractDocumentTitle(documentText));
+        setLoading(false);
+      } else if (documentUrl) {
+        // Otherwise load from URL
+        loadDocument();
+      } else {
+        setContent('');
+        setError('');
+        setTitle('Document Viewer');
+      }
     }
-  }, [open, documentUrl]);
+  }, [open, documentUrl, documentText]);
 
   const loadDocument = async () => {
     if (!documentUrl) {

@@ -61,6 +61,13 @@ function DocumentManagement() {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [uploadError, setError] = useState(null);
+
+  // File input ref for resetting
+  const fileInputRef = React.useRef(null);
+
+  // Confirmation dialog for test data generator template upload
+  const [showTestDataWarning, setShowTestDataWarning] = useState(false);
+  const [pendingUpload, setPendingUpload] = useState(false);
   
   // Document browser state
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -161,14 +168,29 @@ function DocumentManagement() {
   // Handle document upload
   const handleUploadDocument = async () => {
     if (!selectedFile || !selectedCategory) return;
-    
+
+    // If uploading a template for the Test Data Generator agent, show warning
+    if (
+      selectedCategory.type === 'agent' &&
+      selectedCategory.name.toLowerCase().includes('test data generator')
+    ) {
+      setShowTestDataWarning(true);
+      setPendingUpload(true);
+      return;
+    }
+
+    await doUpload();
+  };
+
+  // Actual upload logic, separated for confirmation dialog
+  const doUpload = async () => {
     try {
       setUploading(true);
       setError(null);
-      
+
       // Determine document type
       let documentType = selectedCategory.name;
-      
+
       // For general category, use the selected or custom document type
       if (selectedCategory.type === 'general' && showDocumentTypeField) {
         if (selectedDocumentType === 'custom' && customDocumentType) {
@@ -179,9 +201,9 @@ function DocumentManagement() {
           documentType = selectedDocumentType;
         }
       }
-      
+
       const result = await uploadDocument(selectedFile, documentType);
-      
+
       if (result) {
         // Reset form state
         setSelectedFile(null);
@@ -197,12 +219,12 @@ function DocumentManagement() {
           setError('Failed to upload document. Please try again.');
         }
       }
-      
     } catch (err) {
       console.error('Error uploading document:', err);
       setError(err.message || 'Failed to upload document. Please try again.');
     } finally {
       setUploading(false);
+      setPendingUpload(false);
     }
   };
 
@@ -341,36 +363,38 @@ function DocumentManagement() {
       <Box>
         <Box sx={{ 
           display: 'flex', 
-          justifyContent: 'space-between', 
           alignItems: 'center', 
           mb: 2,
           pb: 1,
           borderBottom: '1px solid rgba(255,255,255,0.1)'
         }}>
-          <Typography variant="h6" sx={{ color: '#fff' }}>
+          <Typography variant="h6" sx={{ color: '#fff', flexGrow: 1 }}>
             {selectedCategory.name}
           </Typography>
-          <Button
-            variant="outlined"
-            component="label"
-            startIcon={<UploadFileIcon />}
-            disabled={uploading}
-            sx={{ 
-              color: '#fff', 
-              borderColor: 'rgba(255,255,255,0.3)',
-              '&:hover': {
-                borderColor: '#fff',
-                backgroundColor: 'rgba(255,255,255,0.1)'
-              }
-            }}
-          >
-            {uploading ? 'Uploading...' : 'Upload File'}
-            <input
-              type="file"
-              hidden
-              onChange={handleFileChange}
-            />
-          </Button>
+          <Box sx={{ ml: 3 }}>
+            <Button
+              variant="outlined"
+              component="label"
+              startIcon={<UploadFileIcon />}
+              disabled={uploading}
+              sx={{ 
+                color: '#fff', 
+                borderColor: 'rgba(255,255,255,0.3)',
+                '&:hover': {
+                  borderColor: '#fff',
+                  backgroundColor: 'rgba(255,255,255,0.1)'
+                }
+              }}
+            >
+              {uploading ? 'Uploading...' : 'Upload File'}
+              <input
+                type="file"
+                hidden
+                ref={fileInputRef}
+                onChange={handleFileChange}
+              />
+            </Button>
+          </Box>
         </Box>
 
         {uploadError && (
@@ -408,6 +432,10 @@ function DocumentManagement() {
                     setShowDocumentTypeField(false);
                     setSelectedDocumentType('');
                     setCustomDocumentType('');
+                    // Reset file input so user can select the same file again
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = '';
+                    }
                   }}
                   sx={{ mr: 1, color: 'rgba(255,255,255,0.7)' }}
                 >
@@ -626,6 +654,50 @@ function DocumentManagement() {
         </DialogActions>
       </Dialog>
 
+      {/* Test Data Generator Template Upload Warning Dialog */}
+      <Dialog
+        open={showTestDataWarning}
+        onClose={() => {
+          setShowTestDataWarning(false);
+          setPendingUpload(false);
+        }}
+        PaperProps={{
+          sx: {
+            bgcolor: '#121212',
+            color: '#fff',
+            border: '1px solid #333'
+          }
+        }}
+      >
+        <DialogTitle>Warning</DialogTitle>
+        <DialogContent>
+          <Typography>
+            If a template is uploaded, the attached file for context will not be taken into consideration when creating test data. Do you wish to continue?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setShowTestDataWarning(false);
+              setPendingUpload(false);
+            }}
+            sx={{ color: 'rgba(255,255,255,0.7)' }}
+          >
+            No
+          </Button>
+          <Button
+            onClick={async () => {
+              setShowTestDataWarning(false);
+              await doUpload();
+            }}
+            color="error"
+            variant="contained"
+          >
+            Yes, Upload
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Delete Confirmation Dialog */}
       <Dialog 
         open={deleteConfirmOpen} 
@@ -666,6 +738,7 @@ function DocumentManagement() {
         open={viewerOpen}
         onClose={handleCloseViewer}
         documentUrl={selectedDocument?.document_url}
+        documentText={selectedDocument?.document_text}
       />
     </Box>
   );
