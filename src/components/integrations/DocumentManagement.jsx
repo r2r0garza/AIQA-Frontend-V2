@@ -372,28 +372,66 @@ function DocumentManagement() {
             {selectedCategory.name}
           </Typography>
           <Box sx={{ ml: 3 }}>
-            <Button
-              variant="outlined"
-              component="label"
-              startIcon={<UploadFileIcon />}
-              disabled={uploading}
-              sx={{ 
-                color: '#fff', 
-                borderColor: 'rgba(255,255,255,0.3)',
-                '&:hover': {
-                  borderColor: '#fff',
-                  backgroundColor: 'rgba(255,255,255,0.1)'
-                }
-              }}
-            >
-              {uploading ? 'Uploading...' : 'Upload File'}
-              <input
-                type="file"
-                hidden
-                ref={fileInputRef}
-                onChange={handleFileChange}
-              />
-            </Button>
+            {selectedCategory?.type === 'agent' && filteredDocuments.length > 0 ? (
+              <>
+                <Button
+                  variant="outlined"
+                  component="label"
+                  startIcon={<UploadFileIcon />}
+                  disabled
+                  sx={{ 
+                    color: '#fff', 
+                    borderColor: 'rgba(255,255,255,0.3)',
+                    '&:hover': {
+                      borderColor: '#fff',
+                      backgroundColor: 'rgba(255,255,255,0.1)'
+                    }
+                  }}
+                >
+                  Upload File
+                  <input
+                    type="file"
+                    hidden
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                  />
+                </Button>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: '#ff9800',
+                    mt: 1,
+                    maxWidth: 320,
+                    fontWeight: 500
+                  }}
+                >
+                  A template file has already been uploaded. To upload a new template, please delete the current template before uploading a new one.
+                </Typography>
+              </>
+            ) : (
+              <Button
+                variant="outlined"
+                component="label"
+                startIcon={<UploadFileIcon />}
+                disabled={uploading}
+                sx={{ 
+                  color: '#fff', 
+                  borderColor: 'rgba(255,255,255,0.3)',
+                  '&:hover': {
+                    borderColor: '#fff',
+                    backgroundColor: 'rgba(255,255,255,0.1)'
+                  }
+                }}
+              >
+                {uploading ? 'Uploading...' : 'Upload File'}
+                <input
+                  type="file"
+                  hidden
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                />
+              </Button>
+            )}
           </Box>
         </Box>
 
