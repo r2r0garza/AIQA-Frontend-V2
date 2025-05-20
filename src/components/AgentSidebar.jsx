@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Box, 
   IconButton, 
@@ -21,6 +21,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import SyntheticDataModal from './integrations/SyntheticDataModal';
 
 // Image dimming percentage - adjust this value to control the image brightness
 // 0% = no dimming (full brightness), 100% = completely dark
@@ -44,6 +45,38 @@ function AgentSidebar({
   onStartChain,
   isChainRunning
 }) {
+  // Synthetic Data Generator config from .env
+  const SYNTHETIC_DATA_GUI = import.meta.env.VITE_SYNTHETIC_DATA_GUI === 'true';
+  const SYNTHETIC_DATA_URL = import.meta.env.VITE_SYNTHETIC_DATA_URL || '';
+  
+  // State for synthetic data modal
+  const [syntheticModalOpen, setSyntheticModalOpen] = useState(false);
+  
+  // Handle Synthetic Data agent selection
+  useEffect(() => {
+    if (selectedAgent?.id === 'synthetic-data-generator') {
+      if (SYNTHETIC_DATA_GUI) {
+        if (SYNTHETIC_DATA_URL) {
+          window.open(SYNTHETIC_DATA_URL, '_blank');
+          
+          // Find the Test Cases Generator agent and select it
+          const testCasesAgent = agents.find(agent => agent.id === 'test-cases-generator');
+          if (testCasesAgent) {
+            onSelectAgent(testCasesAgent);
+          }
+        }
+      } else {
+        setSyntheticModalOpen(true);
+        
+        // Find the Test Cases Generator agent and select it
+        const testCasesAgent = agents.find(agent => agent.id === 'test-cases-generator');
+        if (testCasesAgent) {
+          onSelectAgent(testCasesAgent);
+        }
+      }
+    }
+  }, [selectedAgent, SYNTHETIC_DATA_GUI, SYNTHETIC_DATA_URL, agents, onSelectAgent]);
+  
   // Calculate the opacity based on the dimming percentage
   // 0% dimming = 1.0 opacity, 100% dimming = 0.0 opacity
   const imageOpacity = 1 - (IMAGE_DIM_PERCENTAGE / 100);
@@ -219,7 +252,7 @@ function AgentSidebar({
                   }}
                 >
                   <ListItemText primary={agent.name} />
-                  {selectedAgent?.id === agent.id && (
+                  {selectedAgent?.id === agent.id && agent.id !== 'synthetic-data-generator' && (
                     <IconButton 
                       size="small" 
                       onClick={(e) => {
@@ -299,6 +332,12 @@ function AgentSidebar({
       >
         {open ? <ChevronLeftIcon /> : <ChevronRightIcon />}
       </IconButton>
+      
+      {/* Synthetic Data Generator Modal */}
+      <SyntheticDataModal 
+        open={syntheticModalOpen} 
+        onClose={() => setSyntheticModalOpen(false)} 
+      />
     </Box>
   );
 }

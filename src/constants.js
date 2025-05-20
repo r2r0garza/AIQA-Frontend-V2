@@ -5,6 +5,7 @@ export const AGENTS = [
   { id: 'test-cases-generator', name: 'Test Cases Generator', file: null },
   { id: 'automation-script-generator', name: 'Automation Script Generator', file: null },
   { id: 'test-data-generator', name: 'Test Data Generator', file: null },
+  { id: 'synthetic-data-generator', name: 'Synthetic Data Generator', hidden: false},
   { id: 'language-detector', name: 'Language Detector', file: null, hidden: true }
 ];
 
