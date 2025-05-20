@@ -84,8 +84,14 @@ function App() {
     const isEnabled = event.target.checked;
     setChainModeEnabled(isEnabled);
     
-    // Clear selected agents when disabling chain mode
-    if (!isEnabled) {
+    if (isEnabled) {
+      // When enabling chain mode, remove Test Data Generator and Synthetic Data Generator
+      // from the selected agents if they were previously selected
+      setSelectedAgentsForChain(prev => 
+        prev.filter(id => id !== 'test-data-generator' && id !== 'synthetic-data-generator')
+      );
+    } else {
+      // Clear selected agents when disabling chain mode
       setSelectedAgentsForChain([]);
       setChainFile(null);
       setChainResults([]);

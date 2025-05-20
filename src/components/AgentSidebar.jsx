@@ -208,7 +208,7 @@ function AgentSidebar({
                   <Checkbox
                     checked={selectedAgentsForChain.includes(agent.id)}
                     onChange={() => onAgentChainSelectionToggle(agent.id)}
-                    disabled={isChainRunning}
+                    disabled={isChainRunning || agent.id === 'test-data-generator' || agent.id === 'synthetic-data-generator'}
                     sx={{
                       color: 'rgba(255,255,255,0.5)',
                       '&.Mui-checked': {
