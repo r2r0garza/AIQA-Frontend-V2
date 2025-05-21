@@ -22,7 +22,8 @@ import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import SyntheticDataModal from './integrations/SyntheticDataModal';
-import logo from '/src/assets/logo.png'; 
+import logo from '/src/assets/logo.png';
+import techBG from '/src/assets/tech-bg.png';
 
 // Image dimming percentage - adjust this value to control the image brightness
 // 0% = no dimming (full brightness), 100% = completely dark
@@ -300,7 +301,7 @@ function AgentSidebar({
                 left: 0,
                 width: '100%',
                 height: '100%',
-                backgroundImage: 'url(/src/assets/tech-bg.png)',
+                backgroundImage: `url(${techBG})`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 opacity: imageOpacity, // Apply the calculated opacity based on dimming percentage

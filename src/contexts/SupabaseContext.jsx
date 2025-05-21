@@ -288,17 +288,27 @@ export function SupabaseProvider({ children }) {
       setLoading(true);
       setError(null);
       
-      // Extract the file name from the URL
-      const fileName = documentUrl.split('/').pop();
-      
+      // Extract the file path from the URL (robust for root and subfolders)
+      let filePath = documentUrl;
+      // Try to extract after '/object/public/documentation/'
+      const splitToken = '/object/public/documentation/';
+      if (documentUrl.includes(splitToken)) {
+        filePath = documentUrl.split(splitToken)[1];
+      } else {
+        // fallback: try after last slash (root)
+        filePath = documentUrl.split('/').pop();
+      }
+      // Decode URI component to match actual storage file name
+      filePath = decodeURIComponent(filePath);
+
       // Delete the file from Supabase Storage
       const { error: deleteFileError } = await supabase
         .storage
         .from('documentation')
-        .remove([fileName]);
-      
+        .remove([filePath]);
+
       if (deleteFileError) throw deleteFileError;
-      
+
       // Delete the record from the document table
       const { error: deleteRecordError } = await supabase
         .from('document')
