@@ -22,6 +22,7 @@ import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import SyntheticDataModal from './integrations/SyntheticDataModal';
+import logo from '/src/assets/logo.png'; 
 
 // Image dimming percentage - adjust this value to control the image brightness
 // 0% = no dimming (full brightness), 100% = completely dark
@@ -110,7 +111,7 @@ function AgentSidebar({
           height: '100%'
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
-            <img src="/src/assets/logo.png" alt="Logo" style={{ height: '30px', marginRight: '8px' }} />
+            <img src={logo} alt="Logo" style={{ height: '30px', marginRight: '8px' }} />
             <span style={{ color: 'red', margin: '0 8px', fontSize: '30px' }}>/</span>
             <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#fff', display: 'flex', alignItems: 'center' }}>
               AI Quality Assistant
