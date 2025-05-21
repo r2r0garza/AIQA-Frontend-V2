@@ -52,7 +52,6 @@ function DocumentManagement() {
   } = useSupabase();
   const { documentBrowserOpen, openDocumentBrowser, closeDocumentBrowser } = useDocument();
   const [selectedFile, setSelectedFile] = useState(null);
-  const [selectedDocumentType, setSelectedDocumentType] = useState('');
   const [customDocumentType, setCustomDocumentType] = useState('');
   const [uploading, setUploading] = useState(false);
   const [showDocumentTypeField, setShowDocumentTypeField] = useState(false);
@@ -319,6 +318,35 @@ function DocumentManagement() {
     );
   };
 
+  // Get document types with documents for folder structure
+  const getDocumentTypesWithDocuments = () => {
+    if (!documents || !Array.isArray(documents)) return [];
+    
+    // Get all document types that have at least one document
+    const typesWithDocs = {};
+    
+    documents.forEach(doc => {
+      // Skip agent templates
+      if (AGENTS.some(agent => doc.document_type.includes(agent.name))) {
+        return;
+      }
+      
+      if (!typesWithDocs[doc.document_type]) {
+        typesWithDocs[doc.document_type] = {
+          name: doc.document_type,
+          documents: []
+        };
+      }
+      
+      typesWithDocs[doc.document_type].documents.push(doc);
+    });
+    
+    return Object.values(typesWithDocs);
+  };
+  
+  // State for selected document type in folder view
+  const [selectedDocumentType, setSelectedDocumentType] = useState(null);
+  
   // Render document list (right side of browser)
   const renderDocumentList = () => {
     if (!selectedCategory) {
@@ -360,16 +388,20 @@ function DocumentManagement() {
     }
 
     return (
-      <Box>
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
         <Box sx={{ 
           display: 'flex', 
           alignItems: 'center', 
           mb: 2,
           pb: 1,
-          borderBottom: '1px solid rgba(255,255,255,0.1)'
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          flexShrink: 0 // Prevents the header from shrinking
         }}>
           <Typography variant="h6" sx={{ color: '#fff', flexGrow: 1 }}>
             {selectedCategory.name}
+            {selectedDocumentType && selectedCategory.id === 'general' && (
+              <> / {selectedDocumentType}</>
+            )}
           </Typography>
           <Box sx={{ ml: 3 }}>
             {selectedCategory?.type === 'agent' && filteredDocuments.length > 0 ? (
@@ -452,7 +484,8 @@ function DocumentManagement() {
             p: 1.5, 
             bgcolor: 'rgba(25, 118, 210, 0.1)', 
             borderRadius: 1,
-            border: '1px solid rgba(25, 118, 210, 0.3)'
+            border: '1px solid rgba(25, 118, 210, 0.3)',
+            flexShrink: 0
           }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: showDocumentTypeField ? 2 : 0 }}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -586,59 +619,142 @@ function DocumentManagement() {
           </Box>
         )}
 
-        {filteredDocuments.length === 0 ? (
-          <Typography sx={{ py: 2, textAlign: 'center', color: 'rgba(255,255,255,0.7)' }}>
-            No documents found in this category
-          </Typography>
-        ) : (
-          <List sx={{ width: '100%', p: 0 }}>
-            {filteredDocuments.map((doc) => {
-              // Extract file name from URL
-              const fileName = doc.document_url.split('/').pop().split('_').slice(1).join('_');
-              
-              return (
-                <ListItem 
-                  key={doc.id} 
-                  disablePadding
-                  secondaryAction={
-                    <IconButton 
-                      edge="end" 
-                      size="small" 
-                      onClick={() => handleOpenDeleteConfirm(doc)}
-                      sx={{ color: 'rgba(255,255,255,0.7)' }}
+        {/* Content area with overflow */}
+        <Box sx={{ flex: 1, overflow: 'auto' }}>
+          {/* For General Documentation, show folder structure */}
+          {selectedCategory.id === 'general' && !selectedDocumentType ? (
+            <>
+              {/* Folder structure view */}
+              {getDocumentTypesWithDocuments().length === 0 ? (
+                <Typography sx={{ py: 2, textAlign: 'center', color: 'rgba(255,255,255,0.7)' }}>
+                  No documents found in this category
+                </Typography>
+              ) : (
+                <List sx={{ width: '100%', p: 0 }}>
+                  {getDocumentTypesWithDocuments().map((docType) => (
+                    <ListItem 
+                      key={docType.name} 
+                      disablePadding
+                      sx={{ mb: 1 }}
                     >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  }
-                  sx={{ mb: 1 }}
-                >
-                  <ListItemButton
-                    onClick={() => handleOpenViewer(doc)}
-                    sx={{
-                      borderRadius: 1,
-                      '&:hover': {
-                        backgroundColor: 'rgba(255,255,255,0.1)'
-                      }
-                    }}
-                  >
-                    <DescriptionIcon sx={{ mr: 2, color: 'rgba(255,255,255,0.7)' }} />
-                    <ListItemText 
-                      primary={fileName} 
-                      primaryTypographyProps={{ 
-                        sx: { 
-                          color: '#fff',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        } 
-                      }}
-                    />
-                  </ListItemButton>
-                </ListItem>
-              );
-            })}
-          </List>
-        )}
+                      <ListItemButton
+                        onClick={() => setSelectedDocumentType(docType.name)}
+                        sx={{
+                          borderRadius: 1,
+                          '&:hover': {
+                            backgroundColor: 'rgba(255,255,255,0.1)'
+                          }
+                        }}
+                      >
+                        <FolderIcon sx={{ mr: 2, color: '#4caf50' }} />
+                        <ListItemText 
+                          primary={docType.name} 
+                          secondary={`${docType.documents.length} document${docType.documents.length !== 1 ? 's' : ''}`}
+                          primaryTypographyProps={{ 
+                            sx: { 
+                              color: '#fff',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            } 
+                          }}
+                          secondaryTypographyProps={{
+                            sx: { color: 'rgba(255,255,255,0.5)' }
+                          }}
+                        />
+                      </ListItemButton>
+                    </ListItem>
+                  ))}
+                </List>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Document list view */}
+              {(selectedCategory.id !== 'general' ? filteredDocuments : 
+                documents.filter(doc => doc.document_type === selectedDocumentType)).length === 0 ? (
+                <Box>
+                  {selectedCategory.id === 'general' && selectedDocumentType && (
+                    <Box sx={{ mb: 2 }}>
+                      <Button
+                        startIcon={<FolderIcon />}
+                        onClick={() => setSelectedDocumentType(null)}
+                        sx={{ color: 'rgba(255,255,255,0.7)' }}
+                      >
+                        Back to folders
+                      </Button>
+                    </Box>
+                  )}
+                  <Typography sx={{ py: 2, textAlign: 'center', color: 'rgba(255,255,255,0.7)' }}>
+                    No documents found in this category
+                  </Typography>
+                </Box>
+              ) : (
+                <Box>
+                  {selectedCategory.id === 'general' && selectedDocumentType && (
+                    <Box sx={{ mb: 2 }}>
+                      <Button
+                        startIcon={<FolderIcon />}
+                        onClick={() => setSelectedDocumentType(null)}
+                        sx={{ color: 'rgba(255,255,255,0.7)' }}
+                      >
+                        Back to folders
+                      </Button>
+                    </Box>
+                  )}
+                  <List sx={{ width: '100%', p: 0 }}>
+                    {(selectedCategory.id !== 'general' ? filteredDocuments : 
+                      documents.filter(doc => doc.document_type === selectedDocumentType)).map((doc) => {
+                      // Extract file name from URL
+                      const fileName = doc.document_url.split('/').pop().split('_').slice(1).join('_');
+                      
+                      return (
+                        <ListItem 
+                          key={doc.id} 
+                          disablePadding
+                          secondaryAction={
+                            <IconButton 
+                              edge="end" 
+                              size="small" 
+                              onClick={() => handleOpenDeleteConfirm(doc)}
+                              sx={{ color: 'rgba(255,255,255,0.7)' }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          }
+                          sx={{ mb: 1 }}
+                        >
+                          <ListItemButton
+                            onClick={() => handleOpenViewer(doc)}
+                            sx={{
+                              borderRadius: 1,
+                              '&:hover': {
+                                backgroundColor: 'rgba(255,255,255,0.1)'
+                              }
+                            }}
+                          >
+                            <DescriptionIcon sx={{ mr: 2, color: 'rgba(255,255,255,0.7)' }} />
+                            <ListItemText 
+                              primary={fileName} 
+                              primaryTypographyProps={{ 
+                                sx: { 
+                                  color: '#fff',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                } 
+                              }}
+                            />
+                          </ListItemButton>
+                        </ListItem>
+                      );
+                    })}
+                  </List>
+                </Box>
+              )}
+            </>
+          )}
+        </Box>
       </Box>
     );
   };
@@ -659,7 +775,8 @@ function DocumentManagement() {
             bgcolor: '#121212',
             color: '#fff',
             border: '1px solid #333',
-            minWidth: '900px'
+            minWidth: '900px',
+            height: '65vh'
           }
         }}
       >
@@ -670,14 +787,21 @@ function DocumentManagement() {
           </IconButton>
         </DialogTitle>
         <DialogContent>
-          <Grid container spacing={3}>
+          <Grid container spacing={3} sx={{ height: '100%' }}>
             {/* Left side - Categories */}
-            <Grid item xs={3} sx={{ borderRight: '1px solid rgba(255,255,255,0.1)' }}>
+            <Grid item xs={3} sx={{ 
+              borderRight: '1px solid rgba(255,255,255,0.1)',
+              height: '100%',
+              overflow: 'auto'
+            }}>
               {renderCategories()}
             </Grid>
             
             {/* Right side - Document list */}
-            <Grid item xs={9}>
+            <Grid item xs={9} sx={{ 
+              height: '100%',
+              overflow: 'auto'
+            }}>
               {renderDocumentList()}
             </Grid>
           </Grid>
