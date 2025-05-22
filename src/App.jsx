@@ -3,9 +3,12 @@ import axios from 'axios';
 import { Box, Snackbar, Alert } from '@mui/material';
 import { JiraProvider } from './contexts/JiraContext';
 import { SupabaseProvider } from './contexts/SupabaseContext';
+import { TeamProvider } from './contexts/TeamContext';
+import { DocumentProvider } from './contexts/DocumentContext';
 import { saveAs } from 'file-saver';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import * as XLSX from 'xlsx';
+import TeamSelectionModal from './components/TeamSelectionModal';
 
 // Function to generate simulated responses for demo purposes
 const generateSimulatedResponse = (agentId, message) => {
@@ -882,102 +885,107 @@ ${issue.description ? `**Description:**\n${issue.description}` : ''}
 
   return (
     <SupabaseProvider>
-      <JiraProvider>
-        <Box sx={{ 
-          display: 'flex', 
-          height: '100vh', 
-          width: '100vw', 
-          background: '#fafbfc', 
-          margin: 0, 
-          padding: 0,
-          overflow: 'hidden',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0
-        }}>
-        <AgentSidebar 
-          open={leftOpen} 
-          onToggle={() => setLeftOpen((v) => !v)} 
-          selectedAgent={selectedAgent}
-          onSelectAgent={handleSelectAgent}
-          onFileSelect={handleFileSelect}
-          onFileRemove={handleRemoveFile}
-          agents={agents}
-          chainModeEnabled={chainModeEnabled}
-          onChainModeToggle={handleChainModeToggle}
-          selectedAgentsForChain={selectedAgentsForChain}
-          onAgentChainSelectionToggle={handleAgentChainSelectionToggle}
-          onChainFileSelect={handleChainFileSelect}
-          chainFile={chainFile}
-          onChainFileRemove={handleChainFileRemove}
-          onStartChain={handleStartChain}
-          isChainRunning={isChainRunning}
-        />
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', bgcolor: '#fff' }}>
-            <ResponseDisplay 
+      <TeamProvider>
+        <DocumentProvider>
+          <JiraProvider>
+            <Box sx={{ 
+              display: 'flex', 
+              height: '100vh', 
+              width: '100vw', 
+              background: '#fafbfc', 
+              margin: 0, 
+              padding: 0,
+              overflow: 'hidden',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0
+            }}>
+            <AgentSidebar 
+              open={leftOpen} 
+              onToggle={() => setLeftOpen((v) => !v)} 
               selectedAgent={selectedAgent}
-              aiResponse={aiResponse}
-              rightOpen={rightOpen}
-              chainResults={chainResults}
-              isChainRunning={isChainRunning}
-              currentChainStep={currentChainStep}
-              selectedAgentsForChain={selectedAgentsForChain}
+              onSelectAgent={handleSelectAgent}
+              onFileSelect={handleFileSelect}
+              onFileRemove={handleRemoveFile}
+              agents={agents}
               chainModeEnabled={chainModeEnabled}
-              onDownloadResult={downloadResult}
+              onChainModeToggle={handleChainModeToggle}
+              selectedAgentsForChain={selectedAgentsForChain}
+              onAgentChainSelectionToggle={handleAgentChainSelectionToggle}
+              onChainFileSelect={handleChainFileSelect}
+              chainFile={chainFile}
+              onChainFileRemove={handleChainFileRemove}
+              onStartChain={handleStartChain}
+              isChainRunning={isChainRunning}
             />
-            
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              style={{ display: 'none' }}
+            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+              <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', bgcolor: '#fff' }}>
+                <ResponseDisplay 
+                  selectedAgent={selectedAgent}
+                  aiResponse={aiResponse}
+                  rightOpen={rightOpen}
+                  chainResults={chainResults}
+                  isChainRunning={isChainRunning}
+                  currentChainStep={currentChainStep}
+                  selectedAgentsForChain={selectedAgentsForChain}
+                  chainModeEnabled={chainModeEnabled}
+                  onDownloadResult={downloadResult}
+                />
+                
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  style={{ display: 'none' }}
+                />
+                
+                <input
+                  type="file"
+                  ref={chainFileInputRef}
+                  onChange={handleChainFileChange}
+                  style={{ display: 'none' }}
+                />
+                
+                <MessageInput 
+                  selectedAgent={selectedAgent}
+                  userMessage={userMessage}
+                  setUserMessage={setUserMessage}
+                  isLoading={isLoading}
+                  handleSendMessage={handleSendMessage}
+                  getSelectedAgentFile={getSelectedAgentFile}
+                  handleRemoveFile={handleRemoveFile}
+                  fileInputRef={fileInputRef}
+                  leftOpen={leftOpen}
+                  rightOpen={rightOpen}
+                />
+              </Box>
+            </Box>
+            <ServiceSidebar 
+              open={rightOpen} 
+              onToggle={() => setRightOpen((v) => !v)} 
+              onJiraIssueSelect={handleJiraIssueSelect}
             />
-            
-            <input
-              type="file"
-              ref={chainFileInputRef}
-              onChange={handleChainFileChange}
-              style={{ display: 'none' }}
-            />
-            
-            <MessageInput 
-              selectedAgent={selectedAgent}
-              userMessage={userMessage}
-              setUserMessage={setUserMessage}
-              isLoading={isLoading}
-              handleSendMessage={handleSendMessage}
-              getSelectedAgentFile={getSelectedAgentFile}
-              handleRemoveFile={handleRemoveFile}
-              fileInputRef={fileInputRef}
-              leftOpen={leftOpen}
-              rightOpen={rightOpen}
-            />
-          </Box>
-        </Box>
-        <ServiceSidebar 
-          open={rightOpen} 
-          onToggle={() => setRightOpen((v) => !v)} 
-          onJiraIssueSelect={handleJiraIssueSelect}
-        />
-        <Snackbar
-          open={snackbarOpen}
-          autoHideDuration={6000}
-          onClose={handleSnackbarClose}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        >
-          <Alert 
-            onClose={handleSnackbarClose} 
-            severity={snackbarSeverity} 
-            sx={{ width: '100%' }}
-          >
-            {snackbarMessage}
-          </Alert>
-        </Snackbar>
-        </Box>
-      </JiraProvider>
+            <Snackbar
+              open={snackbarOpen}
+              autoHideDuration={6000}
+              onClose={handleSnackbarClose}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+              <Alert 
+                onClose={handleSnackbarClose} 
+                severity={snackbarSeverity} 
+                sx={{ width: '100%' }}
+              >
+                {snackbarMessage}
+              </Alert>
+            </Snackbar>
+            </Box>
+            <TeamSelectionModal />
+          </JiraProvider>
+        </DocumentProvider>
+      </TeamProvider>
     </SupabaseProvider>
   );
 }

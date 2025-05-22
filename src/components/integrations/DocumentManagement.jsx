@@ -25,7 +25,8 @@ import {
   InputLabel,
   Select,
   Checkbox,
-  FormControlLabel
+  FormControlLabel,
+  Paper
 } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -35,8 +36,10 @@ import FolderIcon from '@mui/icons-material/Folder';
 import ErrorIcon from '@mui/icons-material/Error';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
+import SelectAllIcon from '@mui/icons-material/SelectAll';
 import { useSupabase } from '../../contexts/SupabaseContext';
 import { useDocument } from '../../contexts/DocumentContext';
+import { useTeam } from '../../contexts/TeamContext';
 import { AGENTS } from '../../constants';
 import DocumentViewer from '../DocumentViewer';
 
@@ -53,7 +56,29 @@ function DocumentManagement() {
     fetchDocuments,
     isConnected
   } = useSupabase();
-  const { documentBrowserOpen, openDocumentBrowser, closeDocumentBrowser } = useDocument();
+
+  // DEBUG: Log the documents array to verify global docs are present
+  React.useEffect(() => {
+    // Only log when documents change
+    // eslint-disable-next-line no-console
+    console.log('[DEBUG] All documents:', documents);
+  }, [documents]);
+  
+  const { 
+    documentBrowserOpen, 
+    openDocumentBrowser, 
+    closeDocumentBrowser,
+    selectedDocuments,
+    toggleDocumentSelection,
+    selectAllDocuments,
+    clearDocumentSelection,
+    batchUploadOpen,
+    openBatchUpload,
+    closeBatchUpload
+  } = useDocument();
+  
+  const { selectedTeam } = useTeam();
+  
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isBatchUpload, setIsBatchUpload] = useState(false);
@@ -63,11 +88,11 @@ function DocumentManagement() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState(null);
   const [documentsToDelete, setDocumentsToDelete] = useState([]);
-  const [selectedDocuments, setSelectedDocuments] = useState([]);
   const [selectAllChecked, setSelectAllChecked] = useState(false);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [uploadError, setError] = useState(null);
+  const [isGlobalDocument, setIsGlobalDocument] = useState(false);
 
   // File input ref for resetting
   const fileInputRef = React.useRef(null);
@@ -79,8 +104,6 @@ function DocumentManagement() {
   // Document browser state
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [filteredDocuments, setFilteredDocuments] = useState([]);
-  
-  // No need to get documentTypes again, already destructured above
   
   // Create document categories
   const documentCategories = React.useMemo(() => {
@@ -106,18 +129,18 @@ function DocumentManagement() {
   // Fetch documents and document types when the component mounts
   useEffect(() => {
     if (isConnected) {
-      fetchDocuments();
+      fetchDocuments(null, selectedTeam?.name);
       fetchDocumentTypes();
     }
-  }, [isConnected, fetchDocuments, fetchDocumentTypes]);
+  }, [isConnected, fetchDocuments, fetchDocumentTypes, selectedTeam]);
 
   // Filter documents when category changes
   useEffect(() => {
     if (selectedCategory && documents && Array.isArray(documents)) {
       const filtered = documents.filter(doc => 
-        selectedCategory.id === 'general' 
+        selectedCategory && selectedCategory.id === 'general' 
           ? !AGENTS.some(agent => doc.document_type.includes(agent.name))
-          : doc.document_type.includes(selectedCategory.name)
+          : selectedCategory && doc.document_type.includes(selectedCategory.name)
       );
       setFilteredDocuments(filtered);
     } else {
@@ -208,13 +231,13 @@ function DocumentManagement() {
     if (documentBrowserOpen) {
       // Use a small timeout to prevent UI glitches
       const timer = setTimeout(() => {
-        fetchDocuments();
+        fetchDocuments(null, selectedTeam?.name);
         fetchDocumentTypes();
       }, 100);
       
       return () => clearTimeout(timer);
     }
-  }, [documentBrowserOpen, fetchDocuments, fetchDocumentTypes]);
+  }, [documentBrowserOpen, fetchDocuments, fetchDocumentTypes, selectedTeam]);
 
   // Close document browser
   const handleCloseDocumentBrowser = () => {
@@ -275,7 +298,12 @@ function DocumentManagement() {
         
         for (const file of selectedFiles) {
           try {
-            const result = await uploadDocument(file, documentType);
+            const result = await uploadDocument(
+              file, 
+              documentType, 
+              isGlobalDocument ? null : selectedTeam?.name, 
+              isGlobalDocument
+            );
             if (result) {
               results.push(result);
             } else {
@@ -296,9 +324,15 @@ function DocumentManagement() {
         setShowDocumentTypeField(false);
         setSelectedDocumentType('');
         setCustomDocumentType('');
+        setIsGlobalDocument(false);
       } else {
         // Single file upload
-        const result = await uploadDocument(selectedFile, documentType);
+        const result = await uploadDocument(
+          selectedFile, 
+          documentType, 
+          isGlobalDocument ? null : selectedTeam?.name, 
+          isGlobalDocument
+        );
 
         if (result) {
           // Reset form state
@@ -306,6 +340,7 @@ function DocumentManagement() {
           setShowDocumentTypeField(false);
           setSelectedDocumentType('');
           setCustomDocumentType('');
+          setIsGlobalDocument(false);
         } else {
           // If uploadDocument returned null but didn't throw an error,
           // there might be an error message in the SupabaseContext
@@ -336,8 +371,13 @@ function DocumentManagement() {
   const handleOpenBatchDeleteConfirm = () => {
     if (selectedDocuments.length === 0) return;
     
+    // Find the document objects for the selected IDs
+    const docsToDelete = documents.filter(doc => 
+      selectedDocuments.includes(doc.id)
+    );
+    
     setDocumentToDelete(null);
-    setDocumentsToDelete(selectedDocuments);
+    setDocumentsToDelete(docsToDelete);
     setDeleteConfirmOpen(true);
   };
 
@@ -355,14 +395,14 @@ function DocumentManagement() {
       
       if (documentToDelete) {
         // Single document deletion
-        await deleteDocument(documentToDelete.id, documentToDelete.document_url);
+        await deleteDocument(documentToDelete.id, documentToDelete.document_url, selectedTeam?.name);
       } else if (documentsToDelete.length > 0) {
         // Batch document deletion
         const errors = [];
         
         for (const doc of documentsToDelete) {
           try {
-            await deleteDocument(doc.id, doc.document_url);
+            await deleteDocument(doc.id, doc.document_url, selectedTeam?.name);
           } catch (err) {
             console.error(`Error deleting document ${doc.id}:`, err);
             errors.push(`Error deleting ${doc.document_url.split('/').pop()}: ${err.message || 'Unknown error'}`);
@@ -374,7 +414,7 @@ function DocumentManagement() {
         }
         
         // Reset selected documents
-        setSelectedDocuments([]);
+        clearDocumentSelection();
         setSelectAllChecked(false);
       }
     } catch (error) {
@@ -388,39 +428,19 @@ function DocumentManagement() {
 
   // Handle document selection for batch delete
   const handleDocumentSelect = (document) => {
-    setSelectedDocuments(prev => {
-      const isSelected = prev.some(doc => doc.id === document.id);
-      
-      if (isSelected) {
-        // Remove from selection
-        const newSelection = prev.filter(doc => doc.id !== document.id);
-        // Update select all checkbox
-        if (newSelection.length === 0) {
-          setSelectAllChecked(false);
-        }
-        return newSelection;
-      } else {
-        // Add to selection
-        return [...prev, document];
-      }
-    });
+    toggleDocumentSelection(document.id);
   };
 
   // Handle select all documents
-  const handleSelectAll = (event) => {
-    const checked = event.target.checked;
-    setSelectAllChecked(checked);
+  const handleSelectAll = () => {
+    selectAllDocuments();
     
-    if (checked) {
-      // Select all visible documents
-      const visibleDocs = selectedCategory.id !== 'general' 
-        ? filteredDocuments 
-        : documents.filter(doc => doc.document_type === selectedDocumentType);
-      setSelectedDocuments(visibleDocs);
-    } else {
-      // Deselect all
-      setSelectedDocuments([]);
-    }
+    // Update the select all checkbox state
+    const visibleDocs = selectedCategory && selectedCategory.id !== 'general' 
+      ? filteredDocuments 
+      : documents.filter(doc => doc.document_type === selectedDocumentType);
+      
+    setSelectAllChecked(selectedDocuments.length < visibleDocs.length);
   };
   
   // Open document viewer
@@ -502,15 +522,18 @@ function DocumentManagement() {
       if (AGENTS.some(agent => doc.document_type.includes(agent.name))) {
         return;
       }
-      
-      if (!typesWithDocs[doc.document_type]) {
-        typesWithDocs[doc.document_type] = {
-          name: doc.document_type,
-          documents: []
-        };
+      // Only include general documents if:
+      // - doc.team is null (global) OR
+      // - doc.team matches the selected team (team-specific)
+      if (doc.team === null || (selectedTeam && doc.team === selectedTeam.name)) {
+        if (!typesWithDocs[doc.document_type]) {
+          typesWithDocs[doc.document_type] = {
+            name: doc.document_type,
+            documents: []
+          };
+        }
+        typesWithDocs[doc.document_type].documents.push(doc);
       }
-      
-      typesWithDocs[doc.document_type].documents.push(doc);
     });
     
     return Object.values(typesWithDocs);
@@ -521,6 +544,29 @@ function DocumentManagement() {
   
   // Render document list (right side of browser)
   const renderDocumentList = () => {
+    // DEBUG: Log current filter state and filtered docs
+    React.useEffect(() => {
+      // Only log when relevant state changes
+      // eslint-disable-next-line no-console
+      const filteredDocs = (selectedCategory && selectedCategory.id !== 'general'
+        ? filteredDocuments
+        : documents.filter(
+            doc =>
+              doc.document_type === selectedDocumentType &&
+              (
+                doc.team === null ||
+                (selectedTeam && doc.team === selectedTeam.name)
+              )
+          )
+      );
+      console.log('[DEBUG] renderDocumentList:', {
+        selectedCategory,
+        selectedDocumentType,
+        filteredDocs,
+        documents,
+      });
+    }, [selectedCategory, selectedDocumentType, filteredDocuments, documents, selectedTeam]);
+
     if (!selectedCategory) {
       return (
         <Box sx={{ 
@@ -569,11 +615,18 @@ function DocumentManagement() {
           borderBottom: '1px solid rgba(255,255,255,0.1)',
           flexShrink: 0 // Prevents the header from shrinking
         }}>
-          <Typography variant="h6" sx={{ color: '#fff', flexGrow: 1 }}>
-            {selectedCategory.id === 'general' && selectedDocumentType 
-              ? selectedDocumentType 
-              : selectedCategory.name}
-          </Typography>
+          <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center' }}>
+            <Typography variant="h6" sx={{ color: '#fff' }}>
+              {selectedCategory && selectedCategory.id === 'general' && selectedDocumentType 
+                ? selectedDocumentType 
+                : selectedCategory && selectedCategory.name}
+            </Typography>
+            {selectedTeam && (
+              <span style={{ marginLeft: 8, color: 'rgba(255,255,255,0.6)', fontSize: '1rem' }}>
+                (Team: {selectedTeam.name})
+              </span>
+            )}
+          </Box>
           <Box sx={{ ml: 3, display: 'flex', gap: 1 }}>
             {selectedCategory?.type === 'agent' && filteredDocuments.length > 0 ? (
               <>
@@ -748,6 +801,7 @@ function DocumentManagement() {
                     setShowDocumentTypeField(false);
                     setSelectedDocumentType('');
                     setCustomDocumentType('');
+                    setIsGlobalDocument(false);
                     // Reset file inputs so user can select the same file/folder again
                     if (fileInputRef.current) {
                       fileInputRef.current.value = '';
@@ -851,7 +905,7 @@ function DocumentManagement() {
                         color: '#fff',
                         '& .MuiOutlinedInput-notchedOutline': {
                           borderColor: 'rgba(255,255,255,0.3)'
-                        },
+                          },
                         '&:hover .MuiOutlinedInput-notchedOutline': {
                           borderColor: 'rgba(255,255,255,0.5)'
                         },
@@ -870,7 +924,7 @@ function DocumentManagement() {
         {/* Content area with overflow */}
         <Box sx={{ flex: 1, overflow: 'auto' }}>
           {/* For General Documentation, show folder structure */}
-          {selectedCategory.id === 'general' && !selectedDocumentType ? (
+          {selectedCategory && selectedCategory.id === 'general' && !selectedDocumentType ? (
             <>
               {/* Folder structure view */}
               {getDocumentTypesWithDocuments().length === 0 ? (
@@ -919,10 +973,10 @@ function DocumentManagement() {
           ) : (
             <>
               {/* Document list view */}
-              {(selectedCategory.id !== 'general' ? filteredDocuments : 
+              {(selectedCategory && selectedCategory.id !== 'general' ? filteredDocuments : 
                 documents.filter(doc => doc.document_type === selectedDocumentType)).length === 0 ? (
                 <Box>
-                  {selectedCategory.id === 'general' && selectedDocumentType && (
+                  {selectedCategory && selectedCategory.id === 'general' && selectedDocumentType && (
                     <Box sx={{ mb: 2 }}>
                       <Button
                         startIcon={<FolderIcon />}
@@ -939,7 +993,7 @@ function DocumentManagement() {
                 </Box>
               ) : (
                 <Box>
-                  {selectedCategory.id === 'general' && selectedDocumentType && (
+                  {selectedCategory && selectedCategory.id === 'general' && selectedDocumentType && (
                     <Box sx={{ mb: 2 }}>
                       <Button
                         startIcon={<FolderIcon />}
@@ -975,8 +1029,17 @@ function DocumentManagement() {
                       )}
                     </Box>
                     <List sx={{ width: '100%', p: 0 }}>
-                      {(selectedCategory.id !== 'general' ? filteredDocuments : 
-                        documents.filter(doc => doc.document_type === selectedDocumentType)).map((doc) => {
+                      {(selectedCategory && selectedCategory.id !== 'general'
+                        ? filteredDocuments
+                        : documents.filter(
+                            doc =>
+                              doc.document_type === selectedDocumentType &&
+                              (
+                                doc.team === null ||
+                                (selectedTeam && doc.team === selectedTeam.name)
+                              )
+                          )
+                      ).map((doc) => {
                         // Extract file name from URL
                         const fileName = doc.document_url.split('/').pop().split('_').slice(1).join('_');
                         const isSelected = selectedDocuments.some(selectedDoc => selectedDoc.id === doc.id);

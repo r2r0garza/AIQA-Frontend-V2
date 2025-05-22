@@ -9,6 +9,7 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import JiraIntegration from './integrations/JiraIntegration';
 import SupabaseIntegration from './integrations/SupabaseIntegration';
+import TeamSelector from './TeamSelector';
 import { useSupabase } from '../contexts/SupabaseContext';
 
 function ServiceSidebar({ open, onToggle, onJiraIssueSelect }) {
@@ -36,6 +37,11 @@ function ServiceSidebar({ open, onToggle, onJiraIssueSelect }) {
       >
         <Box sx={{ flex: 1, p: open ? 2 : 0, display: open ? 'block' : 'none' }}>
           <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>External Services</Typography>
+          
+          {/* Team Selector */}
+          <TeamSelector />
+          
+          <Divider sx={{ my: 2, borderColor: 'rgba(255,255,255,0.1)' }} />
           
           {/* Jira Integration */}
           <JiraIntegration onIssueSelect={onJiraIssueSelect} />

@@ -76,9 +76,9 @@ export function SupabaseProvider({ children }) {
 
   // Fetch all documents from the database
   const fetchDocuments = React.useCallback(
-    async (client = supabase) => {
+    async (client = supabase, teamName = null) => {
       if (!client || !isConnected) {
-        setDocuments([]);
+        // Do not clear documents on early return
         return;
       }
       
@@ -86,13 +86,34 @@ export function SupabaseProvider({ children }) {
         setLoading(true);
         setError(null);
         
-        const { data, error } = await client
+        let query = client
           .from('document')
-          .select('*')
+          .select('id, document_type, document_url, created_at, team, document_text')
           .order('id', { ascending: false });
+        
+        // Filter by team if provided
+        if (teamName) {
+          // Get documents that belong to the team or are global (team is null)
+          // Using a more reliable approach with separate filter conditions
+          query = query.or('team.eq.' + teamName + ',team.is.null');
+          
+          // Log the query for debugging
+          console.log(`[DEBUG] fetchDocuments: teamName=`, teamName);
+          console.log(`[DEBUG] fetchDocuments: Query filter:`, 'team.eq.' + teamName + ',team.is.null');
+        } else {
+          // If no team is provided, fetch all documents
+          console.log('[DEBUG] fetchDocuments: Fetching all documents (no team filter)');
+        }
+        
+        const { data, error } = await query;
+        console.log('[DEBUG] fetchDocuments: Supabase response:', { data, error });
         
         if (error) throw error;
         
+        // DEBUG: Log stack trace and data before setting documents
+        console.log('[DEBUG] setDocuments called with:', data || []);
+        // eslint-disable-next-line no-console
+        console.trace('[DEBUG] setDocuments stack trace');
         setDocuments(data || []);
       } catch (err) {
         console.error('Error fetching documents:', err);
@@ -106,7 +127,7 @@ export function SupabaseProvider({ children }) {
   );
 
   // Upload a document to Supabase storage and add record to the database
-  const uploadDocument = async (file, documentType) => {
+  const uploadDocument = async (file, documentType, teamName = null, isGlobal = false) => {
     if (!supabase || !isConnected) {
       setError('Not connected to Supabase');
       return null;
@@ -189,14 +210,30 @@ export function SupabaseProvider({ children }) {
         }
       }
       
-      // 3. Create a unique file name
-      const fileName = `${Date.now()}_${file.name}`;
+      // 3. Create a unique file name with team name if provided
+      let fileName;
+      let filePath;
+      
+      if (teamName && !isGlobal) {
+        // Add team name to the file name
+        const fileNameParts = file.name.split('.');
+        const extension = fileNameParts.pop();
+        const baseName = fileNameParts.join('.');
+        fileName = `${baseName}_${teamName}.${extension}`;
+        
+        // Store in team-specific subfolder
+        filePath = `${teamName}/${Date.now()}_${fileName}`;
+      } else {
+        // Global document or no team specified
+        fileName = `${Date.now()}_${file.name}`;
+        filePath = fileName;
+      }
       
       // 4. Upload file to Supabase Storage
       const { data: fileData, error: uploadError } = await supabase
         .storage
         .from('documentation')
-        .upload(fileName, file, {
+        .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false
         });
@@ -212,7 +249,7 @@ export function SupabaseProvider({ children }) {
       const { data: urlData } = supabase
         .storage
         .from('documentation')
-        .getPublicUrl(fileName);
+        .getPublicUrl(filePath);
       
       const documentUrl = urlData.publicUrl;
       
@@ -238,16 +275,22 @@ export function SupabaseProvider({ children }) {
             id: 'temp-' + Date.now(),
             document_type: documentType,
             document_url: documentUrl,
-            document_text: documentText
+            document_text: documentText,
+            team: isGlobal ? null : teamName
           };
         }
       }
       
-      // 5. Insert record into the document table, including document_text
+      // 5. Insert record into the document table, including document_text and team
       const { data, error: insertError } = await supabase
         .from('document')
         .insert([
-          { document_type: documentType, document_url: documentUrl, document_text: documentText }
+          { 
+            document_type: documentType, 
+            document_url: documentUrl, 
+            document_text: documentText,
+            team: isGlobal ? null : teamName
+          }
         ])
         .select();
       
@@ -260,12 +303,13 @@ export function SupabaseProvider({ children }) {
           id: 'temp-' + Date.now(),
           document_type: documentType,
           document_url: documentUrl,
-          document_text: documentText
+          document_text: documentText,
+          team: isGlobal ? null : teamName
         };
       }
       
       // Refresh the documents list
-      await fetchDocuments();
+      await fetchDocuments(supabase, teamName);
       
       return data[0];
     } catch (err) {
@@ -278,7 +322,7 @@ export function SupabaseProvider({ children }) {
   };
 
   // Delete a document from Supabase storage and remove record from the database
-  const deleteDocument = async (documentId, documentUrl) => {
+  const deleteDocument = async (documentId, documentUrl, teamName = null) => {
     if (!supabase || !isConnected) {
       setError('Not connected to Supabase');
       return false;
@@ -317,8 +361,8 @@ export function SupabaseProvider({ children }) {
       
       if (deleteRecordError) throw deleteRecordError;
       
-      // Refresh the documents list
-      await fetchDocuments();
+      // Refresh the documents list with the current team filter
+      await fetchDocuments(supabase, teamName);
       
       return true;
     } catch (err) {
