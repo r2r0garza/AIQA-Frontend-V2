@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS document (
   document_type TEXT NOT NULL,
   document_url TEXT NOT NULL,
   document_text TEXT,
+  team TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 

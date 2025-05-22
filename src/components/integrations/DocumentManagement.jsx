@@ -221,6 +221,7 @@ function DocumentManagement() {
     closeDocumentBrowser();
     setSelectedCategory(null);
     setSelectedFile(null);
+    setSelectedDocumentType(null); // Reset selected document type when closing the modal
   };
 
   // Handle category selection
