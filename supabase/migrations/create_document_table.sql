@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS document (
   id SERIAL PRIMARY KEY,
   document_type TEXT NOT NULL,
   document_url TEXT NOT NULL,
+  document_text TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
