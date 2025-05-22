@@ -21,6 +21,8 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import CloseIcon from '@mui/icons-material/Close';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
 function SupabaseIntegration() {
   const { 
@@ -42,6 +44,7 @@ function SupabaseIntegration() {
   
   const [configOpen, setConfigOpen] = useState(false);
   const [success, setSuccess] = useState('');
+  const [collapsed, setCollapsed] = useState(true);
   
   // Form state - initialize with current config values
   const [url, setUrl] = useState(supabaseUrl);
@@ -125,14 +128,21 @@ function SupabaseIntegration() {
           <IconButton 
             size="small" 
             onClick={handleOpenConfig}
-            sx={{ color: '#fff' }}
+            sx={{ color: '#fff', mr: 0.5 }}
           >
             <SettingsIcon fontSize="small" />
+          </IconButton>
+          <IconButton
+            size="small"
+            onClick={() => setCollapsed(!collapsed)}
+            sx={{ color: '#fff' }}
+          >
+            {collapsed ? <KeyboardArrowDownIcon fontSize="small" /> : <KeyboardArrowUpIcon fontSize="small" />}
           </IconButton>
         </Box>
       </Box>
       
-      {isConnected ? (
+      {isConnected && !collapsed ? (
         <Box sx={{ 
           p: 1.5, 
           bgcolor: 'rgba(255,255,255,0.05)', 
@@ -174,7 +184,7 @@ function SupabaseIntegration() {
             Manage Documents
           </Button>
         </Box>
-      ) : (
+      ) : !isConnected && (
         <Box sx={{ 
           p: 1.5, 
           bgcolor: 'rgba(255,255,255,0.05)', 

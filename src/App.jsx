@@ -5,6 +5,7 @@ import { JiraProvider } from './contexts/JiraContext';
 import { SupabaseProvider } from './contexts/SupabaseContext';
 import { TeamProvider } from './contexts/TeamContext';
 import { DocumentProvider } from './contexts/DocumentContext';
+import { GitHubProvider } from './contexts/GitHubContext';
 import { saveAs } from 'file-saver';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import * as XLSX from 'xlsx';
@@ -884,10 +885,11 @@ ${issue.description ? `**Description:**\n${issue.description}` : ''}
   };
 
   return (
-    <SupabaseProvider>
+            <SupabaseProvider>
       <TeamProvider>
         <DocumentProvider>
           <JiraProvider>
+            <GitHubProvider>
             <Box sx={{ 
               display: 'flex', 
               height: '100vh', 
@@ -983,6 +985,7 @@ ${issue.description ? `**Description:**\n${issue.description}` : ''}
             </Snackbar>
             </Box>
             <TeamSelectionModal />
+            </GitHubProvider>
           </JiraProvider>
         </DocumentProvider>
       </TeamProvider>

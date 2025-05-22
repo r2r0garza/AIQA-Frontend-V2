@@ -8,6 +8,7 @@ import {
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import JiraIntegration from './integrations/JiraIntegration';
+import GitHubIntegration from './integrations/GitHubIntegration';
 import SupabaseIntegration from './integrations/SupabaseIntegration';
 import TeamSelector from './TeamSelector';
 import { useSupabase } from '../contexts/SupabaseContext';
@@ -22,7 +23,7 @@ function ServiceSidebar({ open, onToggle, onJiraIssueSelect }) {
       <Paper
         elevation={3}
         sx={{
-          width: open ? 290 : 0,
+          width: open ? 305 : 0,
           minWidth: open ? 290 : 0,
           transition: 'width 0.2s',
           overflow: 'hidden',
@@ -38,7 +39,13 @@ function ServiceSidebar({ open, onToggle, onJiraIssueSelect }) {
           padding: 0
         }}
       >
-        <Box sx={{ flex: 1, p: open ? 2 : 0, display: open ? 'block' : 'none' }}>
+        <Box sx={{ 
+          flex: 1, 
+          p: open ? 2 : 0, 
+          display: open ? 'block' : 'none',
+          overflowY: 'auto',
+          maxHeight: '100vh'
+        }}>
           <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>External Services</Typography>
           
           {/* Team Selector - only show if team functionality is enabled */}
@@ -51,6 +58,11 @@ function ServiceSidebar({ open, onToggle, onJiraIssueSelect }) {
           
           {/* Jira Integration */}
           <JiraIntegration onIssueSelect={onJiraIssueSelect} />
+          
+          <Divider sx={{ my: 2, borderColor: 'rgba(255,255,255,0.1)' }} />
+          
+          {/* GitHub Integration */}
+          <GitHubIntegration />
           
           <Divider sx={{ my: 2, borderColor: 'rgba(255,255,255,0.1)' }} />
           

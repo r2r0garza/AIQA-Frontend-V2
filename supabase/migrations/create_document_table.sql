@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS document (
   document_url TEXT NOT NULL,
   document_text TEXT,
   team TEXT,
+  SHA TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 

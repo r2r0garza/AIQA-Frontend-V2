@@ -32,7 +32,7 @@ function MessageInput({
         position: 'fixed', 
         bottom: 0, 
         left: leftOpen ? 385 : 0,
-        right: rightOpen ? 260 : 0,
+        right: rightOpen ? 305 : 0,
         p: 2,
         transition: 'left 0.2s, right 0.2s',
         bgcolor: 'transparent',
