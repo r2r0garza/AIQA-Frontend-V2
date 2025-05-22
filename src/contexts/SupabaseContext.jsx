@@ -4,6 +4,9 @@ import { createClient } from '@supabase/supabase-js';
 // Create context
 const SupabaseContext = createContext();
 
+// Check if team functionality is enabled from environment variable
+const TEAM_USE_ENABLED = import.meta.env.VITE_TEAM_USE !== 'false';
+
 export function useSupabase() {
   return useContext(SupabaseContext);
 }
@@ -91,8 +94,8 @@ export function SupabaseProvider({ children }) {
           .select('id, document_type, document_url, created_at, team, document_text')
           .order('id', { ascending: false });
         
-        // Filter by team if provided
-        if (teamName) {
+        // Filter by team if provided and team functionality is enabled
+        if (TEAM_USE_ENABLED && teamName) {
           // Get documents that belong to the team or are global (team is null)
           // Using a more reliable approach with separate filter conditions
           query = query.or('team.eq.' + teamName + ',team.is.null');
@@ -101,7 +104,7 @@ export function SupabaseProvider({ children }) {
           console.log(`[DEBUG] fetchDocuments: teamName=`, teamName);
           console.log(`[DEBUG] fetchDocuments: Query filter:`, 'team.eq.' + teamName + ',team.is.null');
         } else {
-          // If no team is provided, fetch all documents
+          // If no team is provided or team functionality is disabled, fetch all documents
           console.log('[DEBUG] fetchDocuments: Fetching all documents (no team filter)');
         }
         
@@ -210,11 +213,11 @@ export function SupabaseProvider({ children }) {
         }
       }
       
-      // 3. Create a unique file name with team name if provided
+      // 3. Create a unique file name with team name if provided and team functionality is enabled
       let fileName;
       let filePath;
       
-      if (teamName && !isGlobal) {
+      if (TEAM_USE_ENABLED && teamName && !isGlobal) {
         // Add team name to the file name
         const fileNameParts = file.name.split('.');
         const extension = fileNameParts.pop();
@@ -224,7 +227,7 @@ export function SupabaseProvider({ children }) {
         // Store in team-specific subfolder
         filePath = `${teamName}/${Date.now()}_${fileName}`;
       } else {
-        // Global document or no team specified
+        // Global document or no team specified or team functionality is disabled
         fileName = `${Date.now()}_${file.name}`;
         filePath = fileName;
       }
@@ -276,12 +279,12 @@ export function SupabaseProvider({ children }) {
             document_type: documentType,
             document_url: documentUrl,
             document_text: documentText,
-            team: isGlobal ? null : teamName
+            team: !TEAM_USE_ENABLED || isGlobal ? null : teamName
           };
         }
       }
       
-      // 5. Insert record into the document table, including document_text and team
+      // 5. Insert record into the document table, including document_text and team (if enabled)
       const { data, error: insertError } = await supabase
         .from('document')
         .insert([
@@ -289,7 +292,7 @@ export function SupabaseProvider({ children }) {
             document_type: documentType, 
             document_url: documentUrl, 
             document_text: documentText,
-            team: isGlobal ? null : teamName
+            team: !TEAM_USE_ENABLED || isGlobal ? null : teamName
           }
         ])
         .select();
@@ -304,7 +307,7 @@ export function SupabaseProvider({ children }) {
           document_type: documentType,
           document_url: documentUrl,
           document_text: documentText,
-          team: isGlobal ? null : teamName
+          team: !TEAM_USE_ENABLED || isGlobal ? null : teamName
         };
       }
       

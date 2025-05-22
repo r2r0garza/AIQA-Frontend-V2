@@ -17,6 +17,9 @@ import FolderIcon from '@mui/icons-material/Folder';
 import DescriptionIcon from '@mui/icons-material/Description';
 import DeleteIcon from '@mui/icons-material/Delete';
 
+// Check if team functionality is enabled from environment variable
+const TEAM_USE_ENABLED = import.meta.env.VITE_TEAM_USE !== 'false';
+
 function DocumentListView({
   documents,
   filteredDocuments,
@@ -105,6 +108,7 @@ function DocumentListView({
         doc =>
           doc.document_type === selectedDocumentType &&
           (
+            !TEAM_USE_ENABLED || // If team functionality is disabled, show all documents
             doc.team === null ||
             (selectedTeam && doc.team === selectedTeam.name)
           )

@@ -17,6 +17,9 @@ import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import FolderIcon from '@mui/icons-material/Folder';
 import DescriptionIcon from '@mui/icons-material/Description';
 
+// Check if team functionality is enabled from environment variable
+const TEAM_USE_ENABLED = import.meta.env.VITE_TEAM_USE !== 'false';
+
 function DocumentUploadPanel({
   selectedFile,
   selectedFiles,
@@ -226,8 +229,8 @@ function DocumentUploadPanel({
                 />
               )}
               
-              {/* Team Toggle */}
-              {selectedCategory && selectedCategory.type === 'general' && selectedTeam && (
+              {/* Team Toggle - only show if team functionality is enabled */}
+              {TEAM_USE_ENABLED && selectedCategory && selectedCategory.type === 'general' && selectedTeam && (
                 <FormControlLabel
                   control={
                     <Switch

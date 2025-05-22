@@ -10,6 +10,9 @@ import DocumentListView from './DocumentListView';
 import DocumentUploadPanel from './DocumentUploadPanel';
 import DocumentDialogs from './DocumentDialogs';
 
+// Check if team functionality is enabled from environment variable
+const TEAM_USE_ENABLED = import.meta.env.VITE_TEAM_USE !== 'false';
+
 function DocumentManagement() {
   const { 
     documents, 
@@ -60,7 +63,7 @@ function DocumentManagement() {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [uploadError, setError] = useState(null);
-  const [isGlobalDocument, setIsGlobalDocument] = useState(false);
+  const [isGlobalDocument, setIsGlobalDocument] = useState(!TEAM_USE_ENABLED);
   const [showTestDataWarning, setShowTestDataWarning] = useState(false);
   const [pendingUpload, setPendingUpload] = useState(false);
   const [showBatchConfirm, setShowBatchConfirm] = useState(false);

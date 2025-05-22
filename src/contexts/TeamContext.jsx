@@ -4,6 +4,9 @@ import { useSupabase } from './SupabaseContext';
 // Create context
 const TeamContext = createContext();
 
+// Check if team functionality is enabled from environment variable
+const TEAM_USE_ENABLED = import.meta.env.VITE_TEAM_USE !== 'false';
+
 export function useTeam() {
   return useContext(TeamContext);
 }
@@ -18,6 +21,12 @@ export function TeamProvider({ children }) {
 
   // Check if a team is already selected in session storage
   useEffect(() => {
+    // If team functionality is disabled, don't show team selection modal
+    if (!TEAM_USE_ENABLED) {
+      setShowTeamSelectionModal(false);
+      return;
+    }
+
     const storedTeam = sessionStorage.getItem('selectedTeam');
     if (storedTeam) {
       try {

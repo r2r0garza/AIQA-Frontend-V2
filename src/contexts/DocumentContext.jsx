@@ -5,6 +5,9 @@ import { useTeam } from './TeamContext';
 // Create context
 const DocumentContext = createContext();
 
+// Check if team functionality is enabled from environment variable
+const TEAM_USE_ENABLED = import.meta.env.VITE_TEAM_USE !== 'false';
+
 export function useDocument() {
   return useContext(DocumentContext);
 }
@@ -19,7 +22,9 @@ export function DocumentProvider({ children }) {
   // Refresh documents when connection status or selected team changes
   useEffect(() => {
     if (isConnected) {
-      fetchDocuments(supabase, selectedTeam?.name);
+      // Only filter by team if team functionality is enabled
+      const teamName = TEAM_USE_ENABLED ? selectedTeam?.name : null;
+      fetchDocuments(supabase, teamName);
     }
   }, [isConnected, fetchDocuments, supabase, selectedTeam]);
   

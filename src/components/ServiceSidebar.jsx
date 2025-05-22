@@ -12,6 +12,9 @@ import SupabaseIntegration from './integrations/SupabaseIntegration';
 import TeamSelector from './TeamSelector';
 import { useSupabase } from '../contexts/SupabaseContext';
 
+// Check if team functionality is enabled from environment variable
+const TEAM_USE_ENABLED = import.meta.env.VITE_TEAM_USE !== 'false';
+
 function ServiceSidebar({ open, onToggle, onJiraIssueSelect }) {
   const { isConnected } = useSupabase();
   return (
@@ -38,10 +41,13 @@ function ServiceSidebar({ open, onToggle, onJiraIssueSelect }) {
         <Box sx={{ flex: 1, p: open ? 2 : 0, display: open ? 'block' : 'none' }}>
           <Typography variant="h6" sx={{ fontWeight: 'bold', mb: 2 }}>External Services</Typography>
           
-          {/* Team Selector */}
-          <TeamSelector />
-          
-          <Divider sx={{ my: 2, borderColor: 'rgba(255,255,255,0.1)' }} />
+          {/* Team Selector - only show if team functionality is enabled */}
+          {TEAM_USE_ENABLED && (
+            <>
+              <TeamSelector />
+              <Divider sx={{ my: 2, borderColor: 'rgba(255,255,255,0.1)' }} />
+            </>
+          )}
           
           {/* Jira Integration */}
           <JiraIntegration onIssueSelect={onJiraIssueSelect} />
