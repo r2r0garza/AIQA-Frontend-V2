@@ -86,9 +86,9 @@ function GitHubFileImporter({ selectedFiles, onImportComplete }) {
 
   const handleImport = async () => {
     // Debug: confirm function is called and show connection state
-    console.log('[DEBUG] handleImport called');
-    console.log('[DEBUG] Supabase client:', supabase);
-    console.log('[DEBUG] isConnected:', isConnected);
+    // console.log('[DEBUG] handleImport called');
+    // console.log('[DEBUG] Supabase client:', supabase);
+    // console.log('[DEBUG] isConnected:', isConnected);
 
     // Validate inputs
     if (!documentType) {
@@ -126,13 +126,13 @@ function GitHubFileImporter({ selectedFiles, onImportComplete }) {
       for (const file of selectedFiles) {
         try {
           // Debug: log the data being sent to Supabase
-          console.log('[DEBUG] Preparing to import file:', {
+          {/*console.log('[DEBUG] Preparing to import file:', {
             document_type: documentType,
             document_url: file.url,
             document_text: file.content,
             SHA: file.sha,
             team: !TEAM_USE_ENABLED || isGlobal ? null : selectedTeam?.name
-          });
+          });*/}
 
           // Strict matching: only skip if both document_url and SHA match
           const { data: urlMatchDocs, error: urlMatchError } = await supabase
@@ -140,7 +140,7 @@ function GitHubFileImporter({ selectedFiles, onImportComplete }) {
             .select('id, SHA, document_url, document_text')
             .eq('document_url', file.url);
 
-          console.log('[DEBUG] urlMatchDocs:', urlMatchDocs, 'urlMatchError:', urlMatchError);
+          // console.log('[DEBUG] urlMatchDocs:', urlMatchDocs, 'urlMatchError:', urlMatchError);
 
           if (urlMatchError) {
             console.error('Error checking for existing document by exact URL:', urlMatchError);
@@ -152,7 +152,7 @@ function GitHubFileImporter({ selectedFiles, onImportComplete }) {
 
           if (urlMatchDocs && urlMatchDocs.length > 0) {
             for (const doc of urlMatchDocs) {
-              console.log('[DEBUG] Comparing doc:', doc, 'with file:', file);
+              // console.log('[DEBUG] Comparing doc:', doc, 'with file:', file);
               if (doc.SHA === file.sha) {
                 foundExactDuplicate = true;
                 break;
@@ -164,7 +164,7 @@ function GitHubFileImporter({ selectedFiles, onImportComplete }) {
           }
 
           if (foundExactDuplicate) {
-            console.log(`[DEBUG] Document already exists with same URL and SHA, skipping`);
+            // console.log(`[DEBUG] Document already exists with same URL and SHA, skipping`);
             // Still consider it a successful import for UI purposes
             successfulImports.push(file);
             localImportedCount++;
@@ -174,7 +174,7 @@ function GitHubFileImporter({ selectedFiles, onImportComplete }) {
 
           if (foundUrlMatchWithDifferentSha && urlMatchDocId) {
             // Update the existing document with new content and SHA
-            console.log(`[DEBUG] Updating existing document with new SHA: ${file.sha}`);
+            // console.log(`[DEBUG] Updating existing document with new SHA: ${file.sha}`);
             const { data: updateData, error: updateError } = await supabase
               .from('document')
               .update({
@@ -184,7 +184,7 @@ function GitHubFileImporter({ selectedFiles, onImportComplete }) {
               .eq('id', urlMatchDocId)
               .select();
 
-            console.log('[DEBUG] updateData:', updateData, 'updateError:', updateError);
+            // console.log('[DEBUG] updateData:', updateData, 'updateError:', updateError);
 
             if (updateError) {
               console.error('Error updating document:', updateError);
@@ -193,7 +193,7 @@ function GitHubFileImporter({ selectedFiles, onImportComplete }) {
               continue;
             }
 
-            console.log('[DEBUG] Document updated successfully:', updateData);
+            // console.log('[DEBUG] Document updated successfully:', updateData);
 
             // Add to successful imports
             successfulImports.push(file);
@@ -203,7 +203,7 @@ function GitHubFileImporter({ selectedFiles, onImportComplete }) {
           }
 
           // No exact URL match, insert a new document
-          console.log(`[DEBUG] Creating new document record for "${file.path}"`);
+          // console.log(`[DEBUG] Creating new document record for "${file.path}"`);
 
           const { data: insertData, error: insertError } = await supabase
             .from('document')
@@ -218,7 +218,7 @@ function GitHubFileImporter({ selectedFiles, onImportComplete }) {
             ])
             .select();
 
-          console.log('[DEBUG] insertData:', insertData, 'insertError:', insertError);
+          // console.log('[DEBUG] insertData:', insertData, 'insertError:', insertError);
 
           if (insertError) {
             console.error('Error importing file:', file.name, insertError);
@@ -227,7 +227,7 @@ function GitHubFileImporter({ selectedFiles, onImportComplete }) {
             continue;
           }
 
-          console.log('[DEBUG] Document inserted successfully:', insertData);
+          // console.log('[DEBUG] Document inserted successfully:', insertData);
 
           // Add to successful imports
           successfulImports.push(file);
@@ -247,7 +247,7 @@ function GitHubFileImporter({ selectedFiles, onImportComplete }) {
         try {
           // Use fetchDocuments from the context
           await fetchDocuments();
-          console.log('[DEBUG] Documents refreshed after import');
+          // console.log('[DEBUG] Documents refreshed after import');
         } catch (refreshError) {
           console.error('Error refreshing documents:', refreshError);
           setError(`Error refreshing documents: ${refreshError.message}`);

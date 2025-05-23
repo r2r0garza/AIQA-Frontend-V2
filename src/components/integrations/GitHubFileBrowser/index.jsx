@@ -72,7 +72,7 @@ function GitHubFileBrowser({ open, onClose }) {
     if (documents && documents.length > 0) {
       const fileMap = {};
       
-      console.log('Building imported files map from documents:', documents);
+      // console.log('Building imported files map from documents:', documents);
       
       documents.forEach(doc => {
         // Extract the path from the document_url
@@ -88,11 +88,11 @@ function GitHubFileBrowser({ open, onClose }) {
             fileMap[fileName] = doc.SHA;
           }
           
-          console.log(`Mapped file "${filePath}" with SHA: ${doc.SHA}`);
+          // console.log(`Mapped file "${filePath}" with SHA: ${doc.SHA}`);
         }
       });
       
-      console.log('Final imported files map:', fileMap);
+      // console.log('Final imported files map:', fileMap);
       setImportedFilesMap(fileMap);
     }
   }, [documents, extractFilePathFromUrl]);
@@ -112,7 +112,7 @@ function GitHubFileBrowser({ open, onClose }) {
         loadContents();
       } else {
         // Use cached data
-        console.log('Using cached GitHub contents for:', cacheKey);
+        // console.log('Using cached GitHub contents for:', cacheKey);
         setContents(cachedData);
         setLoading(false);
         setError(null);
@@ -206,7 +206,7 @@ function GitHubFileBrowser({ open, onClose }) {
               newMap[fileName] = file.sha;
             }
             
-            console.log(`Added newly imported file to map: "${file.path}" with SHA: ${file.sha}`);
+            // console.log(`Added newly imported file to map: "${file.path}" with SHA: ${file.sha}`);
           }
         });
         

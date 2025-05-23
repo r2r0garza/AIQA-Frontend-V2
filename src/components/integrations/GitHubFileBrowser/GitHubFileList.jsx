@@ -133,13 +133,13 @@ function GitHubFileList({
           if (item.type === 'file') {
             // Skip if already selected or already imported with the same SHA
             if (selectedFiles.some(f => f.path === item.path)) {
-              console.log(`File "${item.path}" is already selected, skipping`);
+              // console.log(`File "${item.path}" is already selected, skipping`);
               continue;
             }
             
             // Check if the file is already imported with the same SHA
             if (isFileAlreadyImported(item)) {
-              console.log(`File "${item.path}" is already imported with the same SHA, skipping`);
+              // console.log(`File "${item.path}" is already imported with the same SHA, skipping`);
               continue;
             }
             
@@ -173,14 +173,14 @@ function GitHubFileList({
     // Try matching by full path first
     const fullPath = item.path;
     if (importedFilesMap[fullPath] === item.sha) {
-      console.log(`File "${fullPath}" matched by full path with SHA: ${item.sha}`);
+      // console.log(`File "${fullPath}" matched by full path with SHA: ${item.sha}`);
       return true;
     }
     
     // If full path doesn't match, try just the filename
     const fileName = item.name;
     if (importedFilesMap[fileName] === item.sha) {
-      console.log(`File "${fileName}" matched by filename with SHA: ${item.sha}`);
+      // console.log(`File "${fileName}" matched by filename with SHA: ${item.sha}`);
       return true;
     }
     
@@ -190,12 +190,12 @@ function GitHubFileList({
     const hasNameWithDifferentSha = fileName in importedFilesMap && importedFilesMap[fileName] !== item.sha;
     
     if (hasPathWithDifferentSha || hasNameWithDifferentSha) {
-      console.log(`File "${fullPath}" exists with a different SHA - can be updated`);
+      // console.log(`File "${fullPath}" exists with a different SHA - can be updated`);
       // Return false to allow selection for update
       return false;
     }
     
-    console.log(`File "${fullPath}" (SHA: ${item.sha}) not found in imported files map`);
+    // console.log(`File "${fullPath}" (SHA: ${item.sha}) not found in imported files map`);
     return false;
   };
   
@@ -239,8 +239,8 @@ function GitHubFileList({
       // Log the first file to check if SHA is available
       const fileItem = contents.find(item => item.type === 'file');
       if (fileItem) {
-        console.log('File item from GitHub API:', fileItem);
-        console.log('SHA available:', fileItem.sha);
+        // console.log('File item from GitHub API:', fileItem);
+        // console.log('SHA available:', fileItem.sha);
       }
     }
   }, [contents]);
@@ -249,7 +249,7 @@ function GitHubFileList({
   const handleFileSelect = async (item) => {
     // If the file is already imported with the same SHA, don't allow selection
     if (isFileAlreadyImported(item)) {
-      console.log(`File "${item.path}" is already imported with the same SHA, skipping selection`);
+      // console.log(`File "${item.path}" is already imported with the same SHA, skipping selection`);
       return;
     }
     
@@ -316,7 +316,7 @@ function GitHubFileList({
     try {
       // If all files are already selected, deselect them
       if (areAllFilesSelected()) {
-        console.log('Deselecting all files');
+        // console.log('Deselecting all files');
         
         // Get only the files in the current directory that are not already imported with the same SHA
         const selectableFiles = contents.filter(item => 
@@ -331,7 +331,7 @@ function GitHubFileList({
         }
       } else {
         // Otherwise, select all files
-        console.log('Selecting all files');
+        // console.log('Selecting all files');
         await selectFilesInCurrentDirectory();
       }
     } catch (err) {

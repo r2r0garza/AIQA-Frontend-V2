@@ -830,7 +830,7 @@ ${issue.description ? `**Description:**\n${issue.description}` : ''}
       }
       
       // Handle the response
-      console.log('Server response:', response.data);
+      // console.log('Server response:', response.data);
       
       // Check for different possible response structures
       if (response.data && response.data.response) {

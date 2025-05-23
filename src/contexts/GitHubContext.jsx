@@ -186,7 +186,7 @@ export const GitHubProvider = ({ children }) => {
       const pathSegment = path ? `/${path}` : '';
       const apiUrl = `https://api.github.com/repos/${repoPath}/contents${pathSegment}?ref=${githubConfig.selectedBranch}`;
       
-      console.log('Fetching contents from:', apiUrl);
+      // console.log('Fetching contents from:', apiUrl);
       
       // Set up headers for the request
       const headers = {
@@ -228,7 +228,7 @@ export const GitHubProvider = ({ children }) => {
       const repoPath = githubConfig.url.replace(/^https?:\/\/github\.com\//, '').replace(/\/$/, '');
       const apiUrl = `https://api.github.com/repos/${repoPath}/contents/${path}?ref=${githubConfig.selectedBranch}`;
       
-      console.log('Fetching file content from:', apiUrl);
+      // console.log('Fetching file content from:', apiUrl);
       
       // Set up headers for the request
       const headers = {

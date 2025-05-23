@@ -101,22 +101,22 @@ export function SupabaseProvider({ children }) {
           query = query.or('team.eq.' + teamName + ',team.is.null');
           
           // Log the query for debugging
-          console.log(`[DEBUG] fetchDocuments: teamName=`, teamName);
-          console.log(`[DEBUG] fetchDocuments: Query filter:`, 'team.eq.' + teamName + ',team.is.null');
+          // console.log(`[DEBUG] fetchDocuments: teamName=`, teamName);
+          // console.log(`[DEBUG] fetchDocuments: Query filter:`, 'team.eq.' + teamName + ',team.is.null');
         } else {
           // If no team is provided or team functionality is disabled, fetch all documents
-          console.log('[DEBUG] fetchDocuments: Fetching all documents (no team filter)');
+          // console.log('[DEBUG] fetchDocuments: Fetching all documents (no team filter)');
         }
         
         const { data, error } = await query;
-        console.log('[DEBUG] fetchDocuments: Supabase response:', { data, error });
+        // console.log('[DEBUG] fetchDocuments: Supabase response:', { data, error });
         
         if (error) throw error;
         
         // DEBUG: Log stack trace and data before setting documents
-        console.log('[DEBUG] setDocuments called with:', data || []);
+        // console.log('[DEBUG] setDocuments called with:', data || []);
         // eslint-disable-next-line no-console
-        console.trace('[DEBUG] setDocuments stack trace');
+        // console.trace('[DEBUG] setDocuments stack trace');
         setDocuments(data || []);
       } catch (err) {
         console.error('Error fetching documents:', err);
@@ -176,12 +176,12 @@ export function SupabaseProvider({ children }) {
         if (isXlsx) {
           // XLSX endpoint returns raw markdown, not JSON
           const markdown = await parserRes.text();
-          console.log('Parser API XLSX markdown response:', markdown);
+          // console.log('Parser API XLSX markdown response:', markdown);
           documentText = typeof markdown === 'string' ? markdown : '';
         } else {
           // Other endpoints return JSON
           parserData = await parserRes.json();
-          console.log('Parser API response:', parserData);
+          // console.log('Parser API response:', parserData);
           if (typeof parserData.content === 'string' && parserData.content.trim()) {
             documentText = parserData.content;
           } else {
@@ -264,7 +264,7 @@ export function SupabaseProvider({ children }) {
       
       if (tableCheckError && tableCheckError.code === '42P01') {
         // Table doesn't exist, create it
-        console.log('Document table does not exist, creating it...');
+        // console.log('Document table does not exist, creating it...');
         
         // Create the document table
         const { error: createTableError } = await supabase.rpc('create_document_table');
@@ -273,7 +273,7 @@ export function SupabaseProvider({ children }) {
           console.error('Error creating document table:', createTableError);
           
           // Even if table creation fails, we can still return success since the file was uploaded
-          console.log('File was uploaded successfully, but failed to create document record');
+          // console.log('File was uploaded successfully, but failed to create document record');
           return {
             id: 'temp-' + Date.now(),
             document_type: documentType,
@@ -301,7 +301,7 @@ export function SupabaseProvider({ children }) {
         console.error('Error inserting document record:', insertError);
         
         // Even if insert fails, we can still return success since the file was uploaded
-        console.log('File was uploaded successfully, but failed to create document record');
+        // console.log('File was uploaded successfully, but failed to create document record');
         return {
           id: 'temp-' + Date.now(),
           document_type: documentType,
@@ -381,7 +381,7 @@ export function SupabaseProvider({ children }) {
   const fetchDocumentTypes = React.useCallback(
     async (client = supabase) => {
       if (!client || !isConnected) {
-        console.log('fetchDocumentTypes: No client or not connected');
+        // console.log('fetchDocumentTypes: No client or not connected');
         setDocumentTypes([]);
         return;
       }
@@ -390,7 +390,7 @@ export function SupabaseProvider({ children }) {
         setLoading(true);
         setError(null);
         
-        console.log('fetchDocumentTypes: Fetching document types...');
+        // console.log('fetchDocumentTypes: Fetching document types...');
         
         const { data, error } = await client
           .from('document_type')
@@ -402,7 +402,7 @@ export function SupabaseProvider({ children }) {
           throw error;
         }
         
-        console.log('fetchDocumentTypes: Document types fetched:', data);
+        // console.log('fetchDocumentTypes: Document types fetched:', data);
         setDocumentTypes(data || []);
       } catch (err) {
         console.error('Error fetching document types:', err);
