@@ -162,6 +162,31 @@ function ResponseDisplay({
   useEffect(() => {
     const handleSelectionChange = () => {
       const selection = window.getSelection();
+      
+      // Don't show copy bubble for Automation Script Generator code blocks
+      if (selectedAgent?.id === 'automation-script-generator') {
+        // Check if selection is within a code block
+        let node = selection.anchorNode;
+        let isInCodeBlock = false;
+        
+        // Traverse up the DOM tree to check if we're in a code block
+        while (node && node !== document.body) {
+          if (node.tagName === 'PRE' || 
+              node.tagName === 'CODE' || 
+              node.className?.includes('syntaxhighlighter')) {
+            isInCodeBlock = true;
+            break;
+          }
+          node = node.parentNode;
+        }
+        
+        // If in code block for automation script generator, don't show copy bubble
+        if (isInCodeBlock) {
+          setSelectionPosition(null);
+          return;
+        }
+      }
+      
       if (selection && selection.toString() && 
           responseBoxRef.current && 
           responseBoxRef.current.contains(selection.anchorNode)) {
@@ -184,7 +209,7 @@ function ResponseDisplay({
     return () => {
       document.removeEventListener('selectionchange', handleSelectionChange);
     };
-  }, []);
+  }, [selectedAgent]);
 
   if (!selectedAgent && !chainModeEnabled) {
     return (
