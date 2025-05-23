@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useGitHub } from '../../../contexts/GitHubContext';
+import { useSupabase } from '../../../contexts/SupabaseContext';
+import { useTeam } from '../../../contexts/TeamContext';
 import GitHubBranchSelector from './GitHubBranchSelector';
 import GitHubFileList from './GitHubFileList';
 import GitHubFileImporter from './GitHubFileImporter';
@@ -17,20 +19,106 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 
+// Check if team functionality is enabled from environment variable
+const TEAM_USE_ENABLED = import.meta.env.VITE_TEAM_USE !== 'false';
+
 function GitHubFileBrowser({ open, onClose }) {
   const { githubConfig, fetchContents, fetchFileContent } = useGitHub();
+  const { supabase, documents } = useSupabase();
+  const { selectedTeam } = useTeam();
   const [currentPath, setCurrentPath] = useState('');
   const [contents, setContents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [importedFilesMap, setImportedFilesMap] = useState({});
+  const [contentsCache, setContentsCache] = useState({});
+  const [lastFetchTime, setLastFetchTime] = useState({});
+  const CACHE_EXPIRY_TIME = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+  // Helper function to extract file path from GitHub URL
+  const extractFilePathFromUrl = useCallback((url) => {
+    let filePath = '';
+    
+    if (url) {
+      // Extract the path from GitHub URL
+      // GitHub URLs typically look like: https://github.com/owner/repo/blob/branch/path/to/file.js
+      // or https://api.github.com/repos/owner/repo/contents/path/to/file.js
+      
+      // First, try to extract the full path from the URL
+      const githubPathMatch = url.match(/\/blob\/[^/]+\/(.+)$/);
+      if (githubPathMatch && githubPathMatch[1]) {
+        filePath = githubPathMatch[1];
+      } else {
+        // Try API URL format
+        const apiPathMatch = url.match(/\/contents\/(.+)(\?|$)/);
+        if (apiPathMatch && apiPathMatch[1]) {
+          filePath = apiPathMatch[1];
+        } else {
+          // Fallback: just use the filename from the end of the URL
+          const fileNameMatch = url.match(/\/([^/]+)$/);
+          if (fileNameMatch && fileNameMatch[1]) {
+            filePath = fileNameMatch[1];
+          }
+        }
+      }
+    }
+    
+    return filePath;
+  }, []);
+
+  // Create a map of imported files with their SHAs when documents change
+  useEffect(() => {
+    if (documents && documents.length > 0) {
+      const fileMap = {};
+      
+      console.log('Building imported files map from documents:', documents);
+      
+      documents.forEach(doc => {
+        // Extract the path from the document_url
+        const filePath = extractFilePathFromUrl(doc.document_url);
+        
+        if (filePath && doc.SHA) {
+          // Store both by full path and by filename for more flexible matching
+          fileMap[filePath] = doc.SHA;
+          
+          // Also store by just the filename (for backward compatibility)
+          const fileName = filePath.split('/').pop();
+          if (fileName) {
+            fileMap[fileName] = doc.SHA;
+          }
+          
+          console.log(`Mapped file "${filePath}" with SHA: ${doc.SHA}`);
+        }
+      });
+      
+      console.log('Final imported files map:', fileMap);
+      setImportedFilesMap(fileMap);
+    }
+  }, [documents, extractFilePathFromUrl]);
 
   // Load contents when component mounts, branch changes, or path changes
   useEffect(() => {
     if (open && githubConfig.isConnected) {
-      loadContents();
+      const cacheKey = `${githubConfig.selectedBranch}:${currentPath}`;
+      const cachedData = contentsCache[cacheKey];
+      const lastFetch = lastFetchTime[cacheKey] || 0;
+      const now = Date.now();
+      
+      // Only fetch if:
+      // 1. No cached data exists, or
+      // 2. Cache has expired
+      if (!cachedData || (now - lastFetch > CACHE_EXPIRY_TIME)) {
+        loadContents();
+      } else {
+        // Use cached data
+        console.log('Using cached GitHub contents for:', cacheKey);
+        setContents(cachedData);
+        setLoading(false);
+        setError(null);
+      }
     }
-  }, [open, githubConfig.isConnected, githubConfig.selectedBranch, currentPath]);
+  }, [open, githubConfig.isConnected, githubConfig.selectedBranch, currentPath, contentsCache, lastFetchTime]);
 
   const loadContents = async () => {
     setLoading(true);
@@ -40,6 +128,17 @@ function GitHubFileBrowser({ open, onClose }) {
       const result = await fetchContents(currentPath);
       
       if (result.success) {
+        // Store in cache
+        const cacheKey = `${githubConfig.selectedBranch}:${currentPath}`;
+        setContentsCache(prev => ({
+          ...prev,
+          [cacheKey]: result.data
+        }));
+        setLastFetchTime(prev => ({
+          ...prev,
+          [cacheKey]: Date.now()
+        }));
+        
         setContents(result.data);
       } else {
         setError(result.error);
@@ -87,9 +186,33 @@ function GitHubFileBrowser({ open, onClose }) {
     }
   };
 
-  const handleImportComplete = () => {
+  const handleImportComplete = (importedFiles) => {
     // Clear selected files after successful import
     setSelectedFiles([]);
+    
+    // Update importedFilesMap with newly imported files
+    if (importedFiles && importedFiles.length > 0) {
+      setImportedFilesMap(prev => {
+        const newMap = { ...prev };
+        
+        importedFiles.forEach(file => {
+          // Store by full path
+          if (file.path) {
+            newMap[file.path] = file.sha;
+            
+            // Also store by filename for backward compatibility
+            const fileName = file.path.split('/').pop();
+            if (fileName) {
+              newMap[fileName] = file.sha;
+            }
+            
+            console.log(`Added newly imported file to map: "${file.path}" with SHA: ${file.sha}`);
+          }
+        });
+        
+        return newMap;
+      });
+    }
   };
 
   const handleClose = () => {
@@ -149,6 +272,7 @@ function GitHubFileBrowser({ open, onClose }) {
                 onToggleFileSelection={handleToggleFileSelection}
                 onFetchFileContent={handleFetchFileContent}
                 onFetchContents={handleFetchContents}
+                importedFilesMap={importedFilesMap}
               />
             </Box>
             

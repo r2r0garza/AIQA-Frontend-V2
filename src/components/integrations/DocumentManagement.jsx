@@ -32,6 +32,7 @@ function DocumentManagement() {
     openDocumentBrowser, 
     closeDocumentBrowser,
     selectedDocuments,
+    setSelectedDocuments,
     toggleDocumentSelection,
     selectAllDocuments,
     clearDocumentSelection,
@@ -110,6 +111,23 @@ function DocumentManagement() {
     }
   }, [selectedCategory, documents]);
 
+  // Update selectAllChecked state when selectedDocuments or visible documents change
+  useEffect(() => {
+    // Determine which documents are currently visible based on category and type
+    const visibleDocs = selectedCategory && selectedCategory.id !== 'general' 
+      ? filteredDocuments 
+      : documents.filter(doc => doc.document_type === selectedDocumentType);
+    
+    // Get IDs of visible documents
+    const visibleDocIds = visibleDocs.map(doc => doc.id);
+    
+    // Check if all visible documents are selected
+    const allVisibleSelected = visibleDocIds.length > 0 && 
+                              visibleDocIds.every(id => selectedDocuments.includes(id));
+    
+    setSelectAllChecked(allVisibleSelected);
+  }, [selectedDocuments, filteredDocuments, documents, selectedCategory, selectedDocumentType]);
+
   // Upload panel handlers
   const handleFileChange = (event) => {
     if (event.target.files && event.target.files[0]) {
@@ -171,11 +189,27 @@ function DocumentManagement() {
 
   // Document list handlers
   const handleSelectAll = () => {
-    selectAllDocuments();
+    // Determine which documents are currently visible based on category and type
     const visibleDocs = selectedCategory && selectedCategory.id !== 'general' 
       ? filteredDocuments 
       : documents.filter(doc => doc.document_type === selectedDocumentType);
-    setSelectAllChecked(selectedDocuments.length < visibleDocs.length);
+    
+    // Get IDs of visible documents
+    const visibleDocIds = visibleDocs.map(doc => doc.id);
+    
+    // Check if all visible documents are already selected
+    const allVisibleSelected = visibleDocIds.length > 0 && 
+                              visibleDocIds.every(id => selectedDocuments.includes(id));
+    
+    if (allVisibleSelected) {
+      // If all visible docs are selected, clear selection
+      clearDocumentSelection();
+      setSelectAllChecked(false);
+    } else {
+      // Otherwise, select only the visible documents
+      setSelectedDocuments(visibleDocIds);
+      setSelectAllChecked(true);
+    }
   };
 
   const handleDocumentSelect = (document) => {
@@ -422,6 +456,7 @@ function DocumentManagement() {
                 handleDocumentSelect={handleDocumentSelect}
                 handleOpenViewer={handleOpenViewer}
                 handleOpenDeleteConfirm={handleOpenDeleteConfirm}
+                handleOpenBatchDeleteConfirm={handleOpenBatchDeleteConfirm}
                 handleSelectDocumentType={setSelectedDocumentType}
                 loading={loading}
                 error={error}

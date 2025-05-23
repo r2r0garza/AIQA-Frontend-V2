@@ -20,7 +20,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 const TEAM_USE_ENABLED = import.meta.env.VITE_TEAM_USE !== 'false';
 
 function GitHubFileImporter({ selectedFiles, onImportComplete }) {
-  const { supabase, documentTypes, fetchDocumentTypes, isConnected } = useSupabase();
+  const { supabase, documentTypes, fetchDocumentTypes, isConnected, fetchDocuments } = useSupabase();
   const { selectedTeam } = useTeam();
   const [documentType, setDocumentType] = useState('');
   const [isGlobal, setIsGlobal] = useState(false);
@@ -53,15 +53,60 @@ function GitHubFileImporter({ selectedFiles, onImportComplete }) {
     setIsGlobal(event.target.checked);
   };
 
+  // Helper function to extract file path from GitHub URL
+  const extractFilePathFromUrl = (url) => {
+    let filePath = '';
+    
+    if (url) {
+      // Extract the path from GitHub URL
+      // GitHub URLs typically look like: https://github.com/owner/repo/blob/branch/path/to/file.js
+      // or https://api.github.com/repos/owner/repo/contents/path/to/file.js
+      
+      // First, try to extract the full path from the URL
+      const githubPathMatch = url.match(/\/blob\/[^/]+\/(.+)$/);
+      if (githubPathMatch && githubPathMatch[1]) {
+        filePath = githubPathMatch[1];
+      } else {
+        // Try API URL format
+        const apiPathMatch = url.match(/\/contents\/(.+)(\?|$)/);
+        if (apiPathMatch && apiPathMatch[1]) {
+          filePath = apiPathMatch[1];
+        } else {
+          // Fallback: just use the filename from the end of the URL
+          const fileNameMatch = url.match(/\/([^/]+)$/);
+          if (fileNameMatch && fileNameMatch[1]) {
+            filePath = fileNameMatch[1];
+          }
+        }
+      }
+    }
+    
+    return filePath;
+  };
+
   const handleImport = async () => {
+    // Debug: confirm function is called and show connection state
+    console.log('[DEBUG] handleImport called');
+    console.log('[DEBUG] Supabase client:', supabase);
+    console.log('[DEBUG] isConnected:', isConnected);
+
     // Validate inputs
     if (!documentType) {
       setError('Please select a document type');
+      alert('[DEBUG] No document type selected');
       return;
     }
 
     if (selectedFiles.length === 0) {
       setError('No files selected for import');
+      alert('[DEBUG] No files selected for import');
+      return;
+    }
+
+    // --- Robust error handling and connection check ---
+    if (!supabase || !isConnected) {
+      setError('Not connected to Supabase. Please check your connection and try again.');
+      alert('[DEBUG] Not connected to Supabase');
       return;
     }
 
@@ -71,42 +116,153 @@ function GitHubFileImporter({ selectedFiles, onImportComplete }) {
     setImportedCount(0);
     setTotalCount(selectedFiles.length);
 
+    // Track successfully imported files
+    const successfulImports = [];
+    // Use a local counter to track imported files
+    let localImportedCount = 0;
+
     try {
       // Import each file
       for (const file of selectedFiles) {
         try {
-          // Create document record in Supabase
-          const { error: insertError } = await supabase
+          // Debug: log the data being sent to Supabase
+          console.log('[DEBUG] Preparing to import file:', {
+            document_type: documentType,
+            document_url: file.url,
+            document_text: file.content,
+            SHA: file.sha,
+            team: !TEAM_USE_ENABLED || isGlobal ? null : selectedTeam?.name
+          });
+
+          // Strict matching: only skip if both document_url and SHA match
+          const { data: urlMatchDocs, error: urlMatchError } = await supabase
+            .from('document')
+            .select('id, SHA, document_url, document_text')
+            .eq('document_url', file.url);
+
+          console.log('[DEBUG] urlMatchDocs:', urlMatchDocs, 'urlMatchError:', urlMatchError);
+
+          if (urlMatchError) {
+            console.error('Error checking for existing document by exact URL:', urlMatchError);
+          }
+
+          let foundExactDuplicate = false;
+          let foundUrlMatchWithDifferentSha = false;
+          let urlMatchDocId = null;
+
+          if (urlMatchDocs && urlMatchDocs.length > 0) {
+            for (const doc of urlMatchDocs) {
+              console.log('[DEBUG] Comparing doc:', doc, 'with file:', file);
+              if (doc.SHA === file.sha) {
+                foundExactDuplicate = true;
+                break;
+              } else {
+                foundUrlMatchWithDifferentSha = true;
+                urlMatchDocId = doc.id;
+              }
+            }
+          }
+
+          if (foundExactDuplicate) {
+            console.log(`[DEBUG] Document already exists with same URL and SHA, skipping`);
+            // Still consider it a successful import for UI purposes
+            successfulImports.push(file);
+            localImportedCount++;
+            setImportedCount(localImportedCount);
+            continue;
+          }
+
+          if (foundUrlMatchWithDifferentSha && urlMatchDocId) {
+            // Update the existing document with new content and SHA
+            console.log(`[DEBUG] Updating existing document with new SHA: ${file.sha}`);
+            const { data: updateData, error: updateError } = await supabase
+              .from('document')
+              .update({
+                document_text: file.content,
+                SHA: file.sha
+              })
+              .eq('id', urlMatchDocId)
+              .select();
+
+            console.log('[DEBUG] updateData:', updateData, 'updateError:', updateError);
+
+            if (updateError) {
+              console.error('Error updating document:', updateError);
+              setError(`Error updating document: ${updateError.message}`);
+              alert(`[DEBUG] Error updating document: ${updateError.message}`);
+              continue;
+            }
+
+            console.log('[DEBUG] Document updated successfully:', updateData);
+
+            // Add to successful imports
+            successfulImports.push(file);
+            localImportedCount++;
+            setImportedCount(localImportedCount);
+            continue;
+          }
+
+          // No exact URL match, insert a new document
+          console.log(`[DEBUG] Creating new document record for "${file.path}"`);
+
+          const { data: insertData, error: insertError } = await supabase
             .from('document')
             .insert([
               {
                 document_type: documentType,
                 document_url: file.url,
-                document_text: file.content,
-                SHA: file.sha,
+                document_text: file.content, // Store just the content, not the metadata
+                SHA: file.sha, // Store the SHA for comparison
                 team: !TEAM_USE_ENABLED || isGlobal ? null : selectedTeam?.name
               }
-            ]);
+            ])
+            .select();
+
+          console.log('[DEBUG] insertData:', insertData, 'insertError:', insertError);
 
           if (insertError) {
             console.error('Error importing file:', file.name, insertError);
+            setError(`Error importing file "${file.name}": ${insertError.message}`);
+            alert(`[DEBUG] Error importing file "${file.name}": ${insertError.message}`);
             continue;
           }
 
-          setImportedCount(prev => prev + 1);
+          console.log('[DEBUG] Document inserted successfully:', insertData);
+
+          // Add to successful imports
+          successfulImports.push(file);
+          localImportedCount++;
+          setImportedCount(localImportedCount);
         } catch (fileError) {
           console.error('Error processing file:', file.name, fileError);
+          setError(`Error processing file "${file.name}": ${fileError.message}`);
+          alert(`[DEBUG] Error processing file "${file.name}": ${fileError.message}`);
         }
       }
 
-      setSuccess(`Successfully imported ${importedCount} of ${selectedFiles.length} files`);
-      
-      // Notify parent component that import is complete
+      setSuccess(`Successfully imported ${localImportedCount} of ${selectedFiles.length} files`);
+
+      // Refresh documents in SupabaseContext
+      if (localImportedCount > 0) {
+        try {
+          // Use fetchDocuments from the context
+          await fetchDocuments();
+          console.log('[DEBUG] Documents refreshed after import');
+        } catch (refreshError) {
+          console.error('Error refreshing documents:', refreshError);
+          setError(`Error refreshing documents: ${refreshError.message}`);
+          alert(`[DEBUG] Error refreshing documents: ${refreshError.message}`);
+        }
+      }
+
+      // Notify parent component that import is complete with the list of imported files
       if (onImportComplete) {
-        onImportComplete();
+        onImportComplete(successfulImports);
       }
     } catch (err) {
       setError(`Import failed: ${err.message}`);
+      console.error('[DEBUG] Import failed:', err);
+      alert(`[DEBUG] Import failed: ${err.message}`);
     } finally {
       setLoading(false);
     }

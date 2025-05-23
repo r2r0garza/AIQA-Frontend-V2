@@ -32,6 +32,7 @@ function DocumentListView({
   handleDocumentSelect,
   handleOpenViewer,
   handleOpenDeleteConfirm,
+  handleOpenBatchDeleteConfirm,
   handleSelectDocumentType,
   loading,
   error
@@ -185,33 +186,69 @@ function DocumentListView({
         </Button>
       )}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-        <FormControlLabel
-          control={
-            <Checkbox 
-              checked={selectAllChecked}
-              onChange={handleSelectAll}
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <FormControlLabel
+            control={
+              <Checkbox 
+                checked={selectAllChecked}
+                onChange={handleSelectAll}
+                sx={{ 
+                  color: 'rgba(255,255,255,0.7)',
+                  '&.Mui-checked': {
+                    color: 'primary.main',
+                  },
+                  '& .MuiSvgIcon-root': { // Make the checkmark icon more visible
+                    fontSize: '1.2rem',
+                  },
+                  '&.Mui-checked .MuiSvgIcon-root': {
+                    color: 'primary.main',
+                    visibility: 'visible',
+                  }
+                }}
+              />
+            }
+            label="Select All"
+            sx={{ color: 'rgba(255,255,255,0.7)' }}
+          />
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {selectedDocuments.length >= 2 && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<DeleteIcon />}
+              onClick={handleOpenBatchDeleteConfirm}
               sx={{ 
-                color: 'rgba(255,255,255,0.7)',
-                '&.Mui-checked': {
-                  color: 'primary.main',
-                },
+                color: '#f44336',
+                borderColor: '#f44336',
+                '&:hover': {
+                  backgroundColor: 'rgba(244, 67, 54, 0.08)',
+                  borderColor: '#f44336',
+                }
               }}
-            />
-          }
-          label="Select All"
-          sx={{ color: 'rgba(255,255,255,0.7)' }}
-        />
-        {selectedDocuments.length > 0 && (
-          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-            {selectedDocuments.length} selected
-          </Typography>
-        )}
+            >
+              Delete Selected
+            </Button>
+          )}
+          {selectedDocuments.length > 0 && (
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+              {selectedDocuments.length} selected
+            </Typography>
+          )}
+        </Box>
       </Box>
       <List sx={{ width: '100%', p: 0 }}>
         {docsToShow.map((doc) => {
-          // Extract file name from URL
-          const fileName = doc.document_url.split('/').pop().split('_').slice(1).join('_');
-          const isSelected = selectedDocuments.some(selectedDoc => selectedDoc.id === doc.id);
+          // Robust file name extraction for GitHub and uploads
+          let fileName = '';
+          if (doc.document_url && doc.document_url.includes('github.com')) {
+            fileName = doc.document_url.split('/').pop();
+          } else if (doc.document_url) {
+            fileName = doc.document_url.split('/').pop().split('_').slice(1).join('_');
+          } else {
+            fileName = 'Untitled';
+          }
+          const isSelected = selectedDocuments.includes(doc.id);
 
           return (
             <ListItem 
@@ -238,6 +275,13 @@ function DocumentListView({
                   '&.Mui-checked': {
                     color: 'primary.main',
                   },
+                  '& .MuiSvgIcon-root': { // Make the checkmark icon more visible
+                    fontSize: '1.2rem',
+                  },
+                  '&.Mui-checked .MuiSvgIcon-root': {
+                    color: 'primary.main',
+                    visibility: 'visible',
+                  }
                 }}
               />
               <ListItemButton

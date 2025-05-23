@@ -74,6 +74,7 @@ export function DocumentProvider({ children }) {
     openDocumentBrowser,
     closeDocumentBrowser,
     selectedDocuments,
+    setSelectedDocuments,
     toggleDocumentSelection,
     selectAllDocuments,
     clearDocumentSelection,

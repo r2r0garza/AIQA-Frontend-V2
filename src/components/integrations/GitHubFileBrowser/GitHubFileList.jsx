@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   List,
@@ -30,7 +30,8 @@ function GitHubFileList({
   selectedFiles,
   onToggleFileSelection,
   onFetchFileContent,
-  onFetchContents
+  onFetchContents,
+  importedFilesMap
 }) {
   const [loadingFiles, setLoadingFiles] = useState({});
   const [loadingFolders, setLoadingFolders] = useState({});
@@ -87,8 +88,8 @@ function GitHubFileList({
     
     // Process each file
     for (const file of files) {
-      // Skip if already selected
-      if (selectedFiles.some(f => f.path === file.path)) {
+      // Skip if already selected or already imported with the same SHA
+      if (selectedFiles.some(f => f.path === file.path) || isFileAlreadyImported(file)) {
         continue;
       }
       
@@ -130,20 +131,30 @@ function GitHubFileList({
         // Process each item in the folder
         for (const item of result.data) {
           if (item.type === 'file') {
-            // If it's a file, fetch its content and select it if not already selected
-            if (!selectedFiles.some(f => f.path === item.path)) {
-              const fileResult = await onFetchFileContent(item.path);
-              if (fileResult && fileResult.success) {
-                onToggleFileSelection({
-                  ...item,
-                  content: fileResult.data.content,
-                  sha: fileResult.data.sha,
-                  url: fileResult.data.url
-                });
-              }
-              // Add delay between API calls
-              await delay(1000);
+            // Skip if already selected or already imported with the same SHA
+            if (selectedFiles.some(f => f.path === item.path)) {
+              console.log(`File "${item.path}" is already selected, skipping`);
+              continue;
             }
+            
+            // Check if the file is already imported with the same SHA
+            if (isFileAlreadyImported(item)) {
+              console.log(`File "${item.path}" is already imported with the same SHA, skipping`);
+              continue;
+            }
+            
+            // If it's a file, fetch its content and select it
+            const fileResult = await onFetchFileContent(item.path);
+            if (fileResult && fileResult.success) {
+              onToggleFileSelection({
+                ...item,
+                content: fileResult.data.content,
+                sha: fileResult.data.sha,
+                url: fileResult.data.url
+              });
+            }
+            // Add delay between API calls
+            await delay(1000);
           }
         }
       };
@@ -155,8 +166,93 @@ function GitHubFileList({
     }
   };
 
+  // Check if a file is already imported with the same SHA
+  const isFileAlreadyImported = (item) => {
+    if (!item || !importedFilesMap) return false;
+    
+    // Try matching by full path first
+    const fullPath = item.path;
+    if (importedFilesMap[fullPath] === item.sha) {
+      console.log(`File "${fullPath}" matched by full path with SHA: ${item.sha}`);
+      return true;
+    }
+    
+    // If full path doesn't match, try just the filename
+    const fileName = item.name;
+    if (importedFilesMap[fileName] === item.sha) {
+      console.log(`File "${fileName}" matched by filename with SHA: ${item.sha}`);
+      return true;
+    }
+    
+    // If we get here, the file is not imported or has a different SHA
+    // Check if the file exists with a different SHA (meaning it's been updated)
+    const hasPathWithDifferentSha = fullPath in importedFilesMap && importedFilesMap[fullPath] !== item.sha;
+    const hasNameWithDifferentSha = fileName in importedFilesMap && importedFilesMap[fileName] !== item.sha;
+    
+    if (hasPathWithDifferentSha || hasNameWithDifferentSha) {
+      console.log(`File "${fullPath}" exists with a different SHA - can be updated`);
+      // Return false to allow selection for update
+      return false;
+    }
+    
+    console.log(`File "${fullPath}" (SHA: ${item.sha}) not found in imported files map`);
+    return false;
+  };
+  
+  // Check if a file has been updated in GitHub (different SHA)
+  const isFileUpdated = (item) => {
+    if (!item || !importedFilesMap) return false;
+    
+    const fullPath = item.path;
+    const fileName = item.name;
+    
+    // Check if file exists with a different SHA (meaning it's been updated)
+    const hasPathWithDifferentSha = fullPath in importedFilesMap && importedFilesMap[fullPath] !== item.sha;
+    const hasNameWithDifferentSha = fileName in importedFilesMap && importedFilesMap[fileName] !== item.sha;
+    
+    return hasPathWithDifferentSha || hasNameWithDifferentSha;
+  };
+  
+  // Get status text for a file based on its import status
+  const getFileStatusText = (item) => {
+    if (!item || !importedFilesMap) return null;
+    
+    const fullPath = item.path;
+    const fileName = item.name;
+    
+    // Check if file is already imported with the same SHA
+    if (importedFilesMap[fullPath] === item.sha || importedFilesMap[fileName] === item.sha) {
+      return "Already imported (up-to-date)";
+    }
+    
+    // Check if file exists with a different SHA (meaning it's been updated)
+    if (isFileUpdated(item)) {
+      return "Updated in GitHub (can be re-imported)";
+    }
+    
+    return null;
+  };
+
+  // Debug log to check if SHA values are available
+  useEffect(() => {
+    if (contents && Array.isArray(contents) && contents.length > 0) {
+      // Log the first file to check if SHA is available
+      const fileItem = contents.find(item => item.type === 'file');
+      if (fileItem) {
+        console.log('File item from GitHub API:', fileItem);
+        console.log('SHA available:', fileItem.sha);
+      }
+    }
+  }, [contents]);
+
   // Handle file selection
   const handleFileSelect = async (item) => {
+    // If the file is already imported with the same SHA, don't allow selection
+    if (isFileAlreadyImported(item)) {
+      console.log(`File "${item.path}" is already imported with the same SHA, skipping selection`);
+      return;
+    }
+    
     // Check if the file is already selected
     const isSelected = selectedFiles.some(f => f.path === item.path);
     
@@ -189,7 +285,27 @@ function GitHubFileList({
     }
   };
 
-  // Handle select all files in current directory
+  // Check if all files in the current directory are selected
+  const areAllFilesSelected = () => {
+    if (!contents || !Array.isArray(contents)) {
+      return false;
+    }
+    
+    // Get only the files (not directories) that are not already imported with the same SHA
+    const selectableFiles = contents.filter(item => 
+      item.type === 'file' && !isFileAlreadyImported(item)
+    );
+    
+    // If there are no selectable files, return false
+    if (selectableFiles.length === 0) {
+      return false;
+    }
+    
+    // Check if all selectable files are selected
+    return selectableFiles.every(file => selectedFiles.some(f => f.path === file.path));
+  };
+  
+  // Handle select/deselect all files in current directory
   const handleSelectAll = async () => {
     if (selectingAll || !contents || !Array.isArray(contents) || contents.length === 0) {
       return;
@@ -198,9 +314,28 @@ function GitHubFileList({
     setSelectingAll(true);
     
     try {
-      await selectFilesInCurrentDirectory();
+      // If all files are already selected, deselect them
+      if (areAllFilesSelected()) {
+        console.log('Deselecting all files');
+        
+        // Get only the files in the current directory that are not already imported with the same SHA
+        const selectableFiles = contents.filter(item => 
+          item.type === 'file' && !isFileAlreadyImported(item)
+        );
+        
+        // Deselect each file
+        for (const file of selectableFiles) {
+          if (selectedFiles.some(f => f.path === file.path)) {
+            onToggleFileSelection(file);
+          }
+        }
+      } else {
+        // Otherwise, select all files
+        console.log('Selecting all files');
+        await selectFilesInCurrentDirectory();
+      }
     } catch (err) {
-      console.error('Error selecting all files:', err);
+      console.error('Error selecting/deselecting all files:', err);
     } finally {
       setSelectingAll(false);
     }
@@ -287,16 +422,16 @@ function GitHubFileList({
         </Box>
       )}
 
-      {/* Select All button */}
+      {/* Select/Deselect All button */}
       {!loading && !error && sortedContents.length > 0 && (
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-          <Tooltip title="Select all files in this directory">
+          <Tooltip title={areAllFilesSelected() ? "Deselect all files in this directory" : "Select all files in this directory"}>
             <Button
               variant="outlined"
               size="small"
               startIcon={<SelectAllIcon />}
               onClick={handleSelectAll}
-              disabled={selectingAll}
+              disabled={selectingAll || sortedContents.filter(item => item.type === 'file' && !isFileAlreadyImported(item)).length === 0}
               sx={{
                 color: 'rgba(255,255,255,0.7)',
                 borderColor: 'rgba(255,255,255,0.3)',
@@ -306,7 +441,7 @@ function GitHubFileList({
                 }
               }}
             >
-              {selectingAll ? 'Selecting...' : 'Select All'}
+              {selectingAll ? 'Processing...' : areAllFilesSelected() ? 'Deselect All' : 'Select All'}
             </Button>
           </Tooltip>
         </Box>
@@ -372,10 +507,25 @@ function GitHubFileList({
                 // File item
                 <ListItemButton
                   onClick={() => handleFileSelect(item)}
+                  disabled={isFileAlreadyImported(item)}
                   sx={{
                     '&:hover': {
                       bgcolor: 'rgba(255,255,255,0.05)'
-                    }
+                    },
+                    ...(isFileAlreadyImported(item) && {
+                      opacity: 0.5,
+                      cursor: 'not-allowed',
+                      '&:hover': {
+                        bgcolor: 'transparent'
+                      }
+                    }),
+                    ...(isFileUpdated(item) && {
+                      borderLeft: '3px solid #4caf50',
+                      bgcolor: 'rgba(76, 175, 80, 0.05)',
+                      '&:hover': {
+                        bgcolor: 'rgba(76, 175, 80, 0.1)'
+                      }
+                    })
                   }}
                 >
                   <ListItemIcon sx={{ minWidth: 40 }}>
@@ -384,6 +534,7 @@ function GitHubFileList({
                       checked={isFileSelected(item.path)}
                       tabIndex={-1}
                       disableRipple
+                      disabled={isFileAlreadyImported(item)}
                       sx={{
                         color: 'rgba(255,255,255,0.5)',
                         '&.Mui-checked': {
@@ -397,8 +548,16 @@ function GitHubFileList({
                   </ListItemIcon>
                   <ListItemText 
                     primary={item.name}
+                    secondary={getFileStatusText(item)}
                     primaryTypographyProps={{
                       sx: { color: '#fff' }
+                    }}
+                    secondaryTypographyProps={{
+                      sx: { 
+                        color: isFileUpdated(item) 
+                          ? 'rgba(76, 175, 80, 0.9)' // Green for updated files
+                          : 'rgba(144, 202, 249, 0.7)' // Blue for already imported files
+                      }
                     }}
                   />
                   {loadingFiles[item.path] && (
