@@ -10,7 +10,9 @@ import {
   Button,
   Divider,
   LinearProgress,
-  Chip
+  Chip,
+  Switch,
+  FormControlLabel
 } from '@mui/material';
 import { AGENTS } from '../constants';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -36,6 +38,7 @@ function ResponseDisplay({
   const [copySuccess, setCopySuccess] = useState(false);
   const [copyMessage, setCopyMessage] = useState('Response copied to clipboard!');
   const [selectionPosition, setSelectionPosition] = useState(null);
+  const [splitCodeBlocks, setSplitCodeBlocks] = useState(false);
   const responseBoxRef = useRef(null);
   const markdownRef = useRef(null);
   
@@ -86,6 +89,23 @@ function ResponseDisplay({
         setCopySuccess(true);
         setTimeout(() => setCopySuccess(false), 3000);
       }
+    }
+  };
+  
+  // Handle copying individual file content
+  const handleCopyFileContent = (content, filename) => {
+    try {
+      navigator.clipboard.writeText(content)
+        .then(() => {
+          setCopyMessage(`${filename} copied to clipboard!`);
+          setCopySuccess(true);
+          setTimeout(() => setCopySuccess(false), 3000);
+        })
+        .catch(err => {
+          console.error('Failed to copy file content: ', err);
+        });
+    } catch (err) {
+      console.error('Clipboard API not supported: ', err);
     }
   };
   
@@ -358,6 +378,60 @@ function formatDocxMarkdown(text) {
   return text.trim();
 }
 
+/**
+ * Splits code blocks at file boundaries for Automation Script Generator
+ * @param {string} text - The code content to split
+ * @returns {Array} - Array of objects with filename and content
+ */
+function splitCodeByFiles(text) {
+  if (!text) return [];
+  
+  // Regular expression to match file paths in comments
+  // This pattern looks for lines like "// filename.ext" or "/* filename.ext */"
+  const filePathPattern = /^\s*(?:\/\/|\/\*)\s*([a-zA-Z0-9_\-./]+\.[a-zA-Z0-9]+)(?:\s*\*\/)?/;
+  
+  const lines = text.split('\n');
+  const files = [];
+  let currentFile = null;
+  let currentContent = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const match = line.match(filePathPattern);
+    
+    if (match) {
+      // If we already have a file, save it before starting a new one
+      if (currentFile) {
+        files.push({
+          filename: currentFile,
+          content: currentContent.join('\n')
+        });
+      }
+      
+      // Start a new file
+      currentFile = match[1];
+      currentContent = [line]; // Include the file path comment
+    } else if (currentFile) {
+      // Add line to current file
+      currentContent.push(line);
+    } else {
+      // If no file has been identified yet, start with an "unknown" file
+      currentFile = "code";
+      currentContent = [line];
+    }
+  }
+  
+  // Add the last file
+  if (currentFile) {
+    files.push({
+      filename: currentFile,
+      content: currentContent.join('\n')
+    });
+  }
+  
+  return files;
+}
+
   return (
     <Box sx={{ 
       flex: 1, 
@@ -371,27 +445,64 @@ function formatDocxMarkdown(text) {
     }}>
       {/* Chain mode content */}
       {renderChainContent()}
-      {/* Fixed copy button outside the response box */}
+      {/* Fixed buttons outside the response box */}
       {aiResponse && (
-        <Tooltip title="Copy formatted response">
-          <IconButton 
-            onClick={handleCopyFormatted}
-            sx={{ 
-              position: 'fixed', 
-              top: 20, 
-              right: rightOpen ? 280 : 20, // Adjust based on right sidebar
-              bgcolor: 'rgba(255,255,255,0.9)',
-              boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
-              zIndex: 100,
-              '&:hover': {
-                bgcolor: 'rgba(255,255,255,1)',
-              }
-            }}
-            size="medium"
-          >
-            <ContentCopyIcon />
-          </IconButton>
-        </Tooltip>
+        <>
+          {/* Global copy button - only show when not in split mode for Automation Script Generator */}
+          {!(selectedAgent?.id === 'automation-script-generator' && splitCodeBlocks) && (
+            <Tooltip title="Copy formatted response">
+              <IconButton 
+                onClick={handleCopyFormatted}
+                sx={{ 
+                  position: 'fixed', 
+                  top: 20, 
+                  right: rightOpen ? 280 : 20, // Adjust based on right sidebar
+                  bgcolor: 'rgba(255,255,255,0.9)',
+                  boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                  zIndex: 100,
+                  '&:hover': {
+                    bgcolor: 'rgba(255,255,255,1)',
+                  }
+                }}
+                size="medium"
+              >
+                <ContentCopyIcon />
+              </IconButton>
+            </Tooltip>
+          )}
+          
+          {/* Toggle switch for splitting code blocks (only for Automation Script Generator) */}
+          {selectedAgent?.id === 'automation-script-generator' && (
+            <Box 
+              sx={{ 
+                position: 'fixed', 
+                top: 20, 
+                right: rightOpen ? 340 : 80, // Position to the left of the copy button
+                bgcolor: 'rgba(255,255,255,0.9)',
+                boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                borderRadius: 1,
+                padding: '2px 8px',
+                zIndex: 100
+              }}
+            >
+              <FormControlLabel
+                control={
+                  <Switch 
+                    checked={splitCodeBlocks}
+                    onChange={(e) => setSplitCodeBlocks(e.target.checked)}
+                    size="small"
+                  />
+                }
+                label={
+                  <Typography variant="caption">
+                    Split Files
+                  </Typography>
+                }
+                sx={{ margin: 0 }}
+              />
+            </Box>
+          )}
+        </>
       )}
       
       <Box 
@@ -443,33 +554,151 @@ function formatDocxMarkdown(text) {
             )}
             
             <div ref={markdownRef}>
-              <ReactMarkdown 
-                remarkPlugins={[remarkGfm]} 
-                rehypePlugins={[rehypeRaw]}
-                components={{
-                  code({node, inline, className, children, ...props}) {
-                    const match = /language-(\w+)/.exec(className || '');
-                    const language = match ? match[1] : 'text';
+              {/* For Automation Script Generator with split code blocks enabled */}
+              {selectedAgent?.id === 'automation-script-generator' && splitCodeBlocks ? (
+                // Extract code blocks from the response and render them separately
+                (() => {
+                  // Find the code block in the response
+                  const codeBlockMatch = aiResponse.match(/```(?:[\w-]+)?\n([\s\S]+?)```/);
+                  
+                  if (codeBlockMatch) {
+                    const codeContent = codeBlockMatch[1];
+                    const files = splitCodeByFiles(codeContent);
                     
-                    return !inline ? (
-                      <SyntaxHighlighter
-                        style={vscDarkPlus}
-                        language={language}
-                        PreTag="div"
-                        {...props}
-                      >
-                        {String(children).replace(/\n$/, '')}
-                      </SyntaxHighlighter>
-                    ) : (
-                      <code className={className} {...props}>
-                        {children}
-                      </code>
+                    // Get the text before and after the code block
+                    const beforeCode = aiResponse.substring(0, codeBlockMatch.index);
+                    const afterCode = aiResponse.substring(codeBlockMatch.index + codeBlockMatch[0].length);
+                    
+                    return (
+                      <>
+                        {/* Render text before code block */}
+                        {beforeCode && (
+                          <ReactMarkdown 
+                            remarkPlugins={[remarkGfm]} 
+                            rehypePlugins={[rehypeRaw]}
+                          >
+                            {formatDocxMarkdown(beforeCode)}
+                          </ReactMarkdown>
+                        )}
+                        
+                        {/* Render each file as a separate code block */}
+                        {files.map((file, index) => (
+                          <Box key={index} sx={{ mb: 3 }}>
+                            <Box sx={{ 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'space-between',
+                              mb: 1
+                            }}>
+                              <Typography 
+                                variant="subtitle2" 
+                                sx={{ 
+                                  fontFamily: 'monospace',
+                                  color: '#0277bd',
+                                  fontWeight: 'bold'
+                                }}
+                              >
+                                {file.filename}
+                              </Typography>
+                              <Tooltip title={`Copy ${file.filename}`}>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleCopyFileContent(file.content, file.filename)}
+                                  sx={{ 
+                                    color: '#0277bd',
+                                    '&:hover': {
+                                      bgcolor: 'rgba(2, 119, 189, 0.1)',
+                                    }
+                                  }}
+                                >
+                                  <ContentCopyIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
+                            <SyntaxHighlighter
+                              style={vscDarkPlus}
+                              language="text"
+                              PreTag="div"
+                            >
+                              {file.content}
+                            </SyntaxHighlighter>
+                          </Box>
+                        ))}
+                        
+                        {/* Render text after code block */}
+                        {afterCode && (
+                          <ReactMarkdown 
+                            remarkPlugins={[remarkGfm]} 
+                            rehypePlugins={[rehypeRaw]}
+                          >
+                            {formatDocxMarkdown(afterCode)}
+                          </ReactMarkdown>
+                        )}
+                      </>
                     );
                   }
-                }}
-              >
-                {formatDocxMarkdown(aiResponse)}
-              </ReactMarkdown>
+                  
+                  // If no code block found, render normally
+                  return (
+                    <ReactMarkdown 
+                      remarkPlugins={[remarkGfm]} 
+                      rehypePlugins={[rehypeRaw]}
+                      components={{
+                        code({node, inline, className, children, ...props}) {
+                          const match = /language-(\w+)/.exec(className || '');
+                          const language = match ? match[1] : 'text';
+                          
+                          return !inline ? (
+                            <SyntaxHighlighter
+                              style={vscDarkPlus}
+                              language={language}
+                              PreTag="div"
+                              {...props}
+                            >
+                              {String(children).replace(/\n$/, '')}
+                            </SyntaxHighlighter>
+                          ) : (
+                            <code className={className} {...props}>
+                              {children}
+                            </code>
+                          );
+                        }
+                      }}
+                    >
+                      {formatDocxMarkdown(aiResponse)}
+                    </ReactMarkdown>
+                  );
+                })()
+              ) : (
+                // Default rendering for all other agents or when split is disabled
+                <ReactMarkdown 
+                  remarkPlugins={[remarkGfm]} 
+                  rehypePlugins={[rehypeRaw]}
+                  components={{
+                    code({node, inline, className, children, ...props}) {
+                      const match = /language-(\w+)/.exec(className || '');
+                      const language = match ? match[1] : 'text';
+                      
+                      return !inline ? (
+                        <SyntaxHighlighter
+                          style={vscDarkPlus}
+                          language={language}
+                          PreTag="div"
+                          {...props}
+                        >
+                          {String(children).replace(/\n$/, '')}
+                        </SyntaxHighlighter>
+                      ) : (
+                        <code className={className} {...props}>
+                          {children}
+                        </code>
+                      );
+                    }
+                  }}
+                >
+                  {formatDocxMarkdown(aiResponse)}
+                </ReactMarkdown>
+              )}
             </div>
           </Box>
         )}
