@@ -91,7 +91,7 @@ export function SupabaseProvider({ children }) {
         
         let query = client
           .from('document')
-          .select('id, document_type, document_url, created_at, team, SHA')
+          .select('id, document_type, document_url, created_at, team, sha')
           .order('id', { ascending: false });
         
         // Filter by team if provided and team functionality is enabled

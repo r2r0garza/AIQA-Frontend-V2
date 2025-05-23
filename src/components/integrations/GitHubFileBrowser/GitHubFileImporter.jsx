@@ -130,14 +130,14 @@ function GitHubFileImporter({ selectedFiles, onImportComplete }) {
             document_type: documentType,
             document_url: file.url,
             document_text: file.content,
-            SHA: file.sha,
+            sha: file.sha,
             team: !TEAM_USE_ENABLED || isGlobal ? null : selectedTeam?.name
           });*/}
 
-          // Strict matching: only skip if both document_url and SHA match
+          // Strict matching: only skip if both document_url and sha match
           const { data: urlMatchDocs, error: urlMatchError } = await supabase
             .from('document')
-            .select('id, SHA, document_url, document_text')
+            .select('id, sha, document_url, document_text')
             .eq('document_url', file.url);
 
           // console.log('[DEBUG] urlMatchDocs:', urlMatchDocs, 'urlMatchError:', urlMatchError);
@@ -153,7 +153,7 @@ function GitHubFileImporter({ selectedFiles, onImportComplete }) {
           if (urlMatchDocs && urlMatchDocs.length > 0) {
             for (const doc of urlMatchDocs) {
               // console.log('[DEBUG] Comparing doc:', doc, 'with file:', file);
-              if (doc.SHA === file.sha) {
+              if (doc.sha === file.sha) {
                 foundExactDuplicate = true;
                 break;
               } else {
@@ -173,13 +173,13 @@ function GitHubFileImporter({ selectedFiles, onImportComplete }) {
           }
 
           if (foundUrlMatchWithDifferentSha && urlMatchDocId) {
-            // Update the existing document with new content and SHA
-            // console.log(`[DEBUG] Updating existing document with new SHA: ${file.sha}`);
+            // Update the existing document with new content and sha
+            // console.log(`[DEBUG] Updating existing document with new sha: ${file.sha}`);
             const { data: updateData, error: updateError } = await supabase
               .from('document')
               .update({
                 document_text: file.content,
-                SHA: file.sha
+                sha: file.sha
               })
               .eq('id', urlMatchDocId)
               .select();
@@ -212,7 +212,7 @@ function GitHubFileImporter({ selectedFiles, onImportComplete }) {
                 document_type: documentType,
                 document_url: file.url,
                 document_text: file.content, // Store just the content, not the metadata
-                SHA: file.sha, // Store the SHA for comparison
+                sha: file.sha, // Store the sha for comparison
                 team: !TEAM_USE_ENABLED || isGlobal ? null : selectedTeam?.name
               }
             ])

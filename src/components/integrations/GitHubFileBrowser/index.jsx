@@ -78,17 +78,17 @@ function GitHubFileBrowser({ open, onClose }) {
         // Extract the path from the document_url
         const filePath = extractFilePathFromUrl(doc.document_url);
         
-        if (filePath && doc.SHA) {
+        if (filePath && doc.sha) {
           // Store both by full path and by filename for more flexible matching
-          fileMap[filePath] = doc.SHA;
+          fileMap[filePath] = doc.sha;
           
           // Also store by just the filename (for backward compatibility)
           const fileName = filePath.split('/').pop();
           if (fileName) {
-            fileMap[fileName] = doc.SHA;
+            fileMap[fileName] = doc.sha;
           }
           
-          // console.log(`Mapped file "${filePath}" with SHA: ${doc.SHA}`);
+          // console.log(`Mapped file "${filePath}" with sha: ${doc.sha}`);
         }
       });
       
