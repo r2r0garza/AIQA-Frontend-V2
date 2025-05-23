@@ -89,22 +89,72 @@ function ResponseDisplay({
     }
   };
   
-  // Handle copying selected text
+  // Handle copying selected text with formatting
   const handleCopySelection = () => {
     const selection = window.getSelection();
     if (selection && selection.toString()) {
-      navigator.clipboard.writeText(selection.toString())
-        .then(() => {
-          setCopyMessage('Selection copied to clipboard!');
-          setCopySuccess(true);
-          setTimeout(() => setCopySuccess(false), 3000);
-          // Clear selection after copying
-          selection.removeAllRanges();
-          setSelectionPosition(null);
-        })
-        .catch(err => {
-          console.error('Failed to copy selection: ', err);
-        });
+      try {
+        // Create a temporary element to hold the selected HTML content
+        const tempDiv = document.createElement('div');
+        
+        // Get the range and clone its contents with formatting
+        const range = selection.getRangeAt(0);
+        const fragment = range.cloneContents();
+        tempDiv.appendChild(fragment);
+        
+        // Apply some basic styling to maintain formatting
+        const style = document.createElement('style');
+        style.textContent = `
+          table { border-collapse: collapse; width: 100%; }
+          th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+          th { background-color: #f2f2f2; }
+          code { font-family: monospace; background-color: #f5f5f5; padding: 2px 4px; border-radius: 3px; }
+          pre { background-color: #f5f5f5; padding: 10px; border-radius: 5px; overflow-x: auto; }
+        `;
+        tempDiv.appendChild(style);
+        
+        // Try to copy as HTML first
+        const blob = new Blob([tempDiv.innerHTML], { type: 'text/html' });
+        const clipboardItem = new ClipboardItem({ 'text/html': blob });
+        
+        navigator.clipboard.write([clipboardItem])
+          .then(() => {
+            setCopyMessage('Formatted selection copied to clipboard!');
+            setCopySuccess(true);
+            setTimeout(() => setCopySuccess(false), 3000);
+            // Clear selection after copying
+            selection.removeAllRanges();
+            setSelectionPosition(null);
+          })
+          .catch(err => {
+            console.error('Failed to copy formatted selection: ', err);
+            // Fall back to copying as plain text
+            navigator.clipboard.writeText(selection.toString())
+              .then(() => {
+                setCopyMessage('Selection copied to clipboard (as text)!');
+                setCopySuccess(true);
+                setTimeout(() => setCopySuccess(false), 3000);
+                // Clear selection after copying
+                selection.removeAllRanges();
+                setSelectionPosition(null);
+              });
+          });
+      } catch (err) {
+        console.error('ClipboardItem API not supported, falling back to text copy', err);
+        // Fall back to copying as plain text
+        navigator.clipboard.writeText(selection.toString())
+          .then(() => {
+            setCopyMessage('Selection copied to clipboard (as text)!');
+            setCopySuccess(true);
+            setTimeout(() => setCopySuccess(false), 3000);
+            // Clear selection after copying
+            selection.removeAllRanges();
+            setSelectionPosition(null);
+          })
+          .catch(err => {
+            console.error('Failed to copy selection: ', err);
+          });
+      }
     }
   };
   
