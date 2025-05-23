@@ -348,7 +348,7 @@ function DocumentManagement() {
             bgcolor: '#121212',
             color: '#fff',
             border: '1px solid #333',
-            minWidth: '1350px',
+            minWidth: '900px',
             height: '65vh'
           }
         }}

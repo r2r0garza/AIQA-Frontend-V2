@@ -105,7 +105,7 @@ function GitHubIntegration() {
           <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
             Browse repository files:
           </Typography>
-          <Button
+          {/*<Button
             variant="outlined"
             fullWidth
             size="small"
@@ -122,7 +122,7 @@ function GitHubIntegration() {
             }}
           >
             Browse Files
-          </Button>
+          </Button>*/}
         </Box>
       ) : !githubConfig.isConnected && (
         <Box sx={{

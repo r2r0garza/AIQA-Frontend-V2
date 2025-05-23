@@ -85,9 +85,15 @@ function DocumentListView({
                 primaryTypographyProps={{ 
                   sx: { 
                     color: '#fff',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
+                    overflowX: 'auto',
+                    paddingBottom: '5px', // Add some padding to ensure text is not cut off by the scrollbar
+                    '&::-webkit-scrollbar': {
+                      height: '4px'
+                    },
+                    '&::-webkit-scrollbar-thumb': {
+                      backgroundColor: 'rgba(255,255,255,0.3)',
+                      borderRadius: '4px'
+                    }
                   } 
                 }}
                 secondaryTypographyProps={{
@@ -249,9 +255,15 @@ function DocumentListView({
                   primaryTypographyProps={{ 
                     sx: { 
                       color: '#fff',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap'
+                      overflowX: 'auto',
+                      paddingBottom: '5px', // Add some padding to ensure text is not cut off by the scrollbar
+                      '&::-webkit-scrollbar': {
+                        height: '4px'
+                      },
+                      '&::-webkit-scrollbar-thumb': {
+                        backgroundColor: 'rgba(255,255,255,0.3)',
+                        borderRadius: '4px'
+                      }
                     } 
                   }}
                 />
