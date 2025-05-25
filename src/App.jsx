@@ -637,7 +637,7 @@ function App() {
 
         // Create FormData for the request
         const formData = new FormData();
-        formData.append('file', currentInput);
+        formData.append('files', currentInput);
         formData.append('agent', agentId);
         formData.append('message', chainMessage);
         
