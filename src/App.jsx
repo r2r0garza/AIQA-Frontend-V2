@@ -10,6 +10,7 @@ import { saveAs } from 'file-saver';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import * as XLSX from 'xlsx';
 import TeamSelectionModal from './components/TeamSelectionModal';
+// Don't import useTeam directly
 
 // Function to generate simulated responses for demo purposes
 const generateSimulatedResponse = (agentId, message) => {
@@ -48,7 +49,15 @@ import MessageInput from './components/MessageInput';
 // Import constants
 import { AGENTS, DEFAULT_AGENT_INDEX } from './constants';
 
+// Create a TeamConsumer component to safely access team context
+const TeamConsumer = ({ children }) => {
+  const teamContext = React.useContext(React.createContext({}));
+  return children(teamContext?.selectedTeam || null);
+};
+
 function App() {
+  // Initialize selectedTeam as null - we'll get it from the TeamProvider later
+  const [selectedTeam, setSelectedTeam] = useState(null);
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(false); // Default to closed
   // Set Test Cases Generator as the default selected agent
@@ -631,6 +640,25 @@ function App() {
         formData.append('file', currentInput);
         formData.append('agent', agentId);
         formData.append('message', chainMessage);
+        
+        // Include team information in the chain request if team functionality is enabled
+        const TEAM_USE_ENABLED = import.meta.env.VITE_TEAM_USE !== 'false';
+        if (TEAM_USE_ENABLED) {
+          try {
+            const storedTeam = sessionStorage.getItem('selectedTeam');
+            if (storedTeam) {
+              const teamData = JSON.parse(storedTeam);
+              // Send team ID as a separate field
+              formData.append('teamId', teamData.id);
+              // Also send team name for better logging/debugging
+              formData.append('teamName', teamData.name);
+              // Send the full team object as JSON string in case backend needs more team data
+              formData.append('teamData', JSON.stringify(teamData));
+            }
+          } catch (err) {
+            console.error('Error getting team from sessionStorage for chain request:', err);
+          }
+        }
 
         const webhookUrl = getWebhookUrl(agentId);
 
@@ -804,10 +832,29 @@ ${issue.description ? `**Description:**\n${issue.description}` : ''}
       formData.append('message', userMessage);
       
       if (agentFile) {
-        formData.append('file', agentFile);
+        formData.append('files', agentFile); // Use 'files' as the field name (plural)
       }
       
       formData.append('agent', selectedAgent.id);
+
+      // Include team information in the request if team functionality is enabled
+      const TEAM_USE_ENABLED = import.meta.env.VITE_TEAM_USE !== 'false';
+      if (TEAM_USE_ENABLED) {
+        try {
+          const storedTeam = sessionStorage.getItem('selectedTeam');
+          if (storedTeam) {
+            const teamData = JSON.parse(storedTeam);
+            // Send team ID as a separate field
+            formData.append('teamId', teamData.id);
+            // Also send team name for better logging/debugging
+            formData.append('teamName', teamData.name);
+            // Send the full team object as JSON string in case backend needs more team data
+            formData.append('teamData', JSON.stringify(teamData));
+          }
+        } catch (err) {
+          console.error('Error getting team from sessionStorage:', err);
+        }
+      }
       
       let response;
       
