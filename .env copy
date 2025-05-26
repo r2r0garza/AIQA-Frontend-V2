@@ -1,18 +1,16 @@
 # Environment variables for AIQA Frontend
-
-# n8n webhook URLs for each agent
-VITE_USER_STORY_CREATOR_WEBHOOK_URL=http://localhost:5678/webhook-test/user-story-creator
-VITE_ACCEPTANCE_CRITERIA_CREATOR_WEBHOOK_URL=http://localhost:5678/webhook/acceptance-criteria-creator
-VITE_TEST_CASES_GENERATOR_WEBHOOK_URL=http://localhost:5678/webhook/test-case-creator
-VITE_AUTOMATION_SCRIPT_GENERATOR_WEBHOOK_URL=http://localhost:5678/webhook/test-script-creator
-VITE_TEST_DATA_GENERATOR_WEBHOOK_URL=http://localhost:5678/webhook/test-data-creator
-VITE_LANGUAGE_DETECTOR_WEBHOOK_URL=http://localhost:5678/webhook/30d571dd-d005-472b-a62c-4a4b37cd6294
-VITE_PARSER_URL=http://localhost:8001/parse
-VITE_PARSER_URL_XLSX=http://localhost:8001/xlsx-to-md
+VITE_USER_STORY_CREATOR_WEBHOOK_URL=https://aiqa.prftdata.com/user-story-creator
+VITE_ACCEPTANCE_CRITERIA_CREATOR_WEBHOOK_URL=https://aiqa.prftdata.com/acceptance-criteria-creator
+VITE_TEST_CASES_GENERATOR_WEBHOOK_URL=https://aiqa.prftdata.com/test-case-creator
+VITE_AUTOMATION_SCRIPT_GENERATOR_WEBHOOK_URL=https://aiqa.prftdata.com/test-script-creator
+VITE_TEST_DATA_GENERATOR_WEBHOOK_URL=https://aiqa.prftdata.com/test-data-creator
+VITE_LANGUAGE_DETECTOR_WEBHOOK_URL=https://aiqa.prftdata.com/30d571dd-d005-472b-a62c-4a4b37cd6294
+VITE_PARSER_URL=https://aiqa.prftdata.com/parse
+VITE_PARSER_URL_XLSX=https://aiqa.prftdata.com/xlsx-to-md
 VITE_GITHUB_URL_PARSER=http://localhost:5678/webhook/github-url-parser
 
 # Synthetic Data Generator
-VITE_SYNTHETIC_DATA_GUI=false
+VITE_SYNTHETIC_DATA_GUI=true
 VITE_SYNTHETIC_DATA_URL=http://synthgen.prftdata.com/index.html
 VITE_SYNTHETIC_DATA_API_URL=http://synthgen.prftdata.com/synthetic-data/json
 
@@ -29,13 +27,13 @@ VITE_ADO_API_URL=https://dev.azure.com/your-org
 VITE_AWS_API_URL=https://your-aws-endpoint
 
 # Supabase Config
-VITE_SUPABASE_URL=http://localhost:8000
+VITE_SUPABASE_URL=https://aiqa.prftdata.com/supabase
 VITE_SUPABASE_SERVICE_ROLE_SECRET=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q
 # Set to 'true' to use the mock server for development, 'false' to use the real Supabase instance
 VITE_USE_MOCK_SERVER=false
 
 # Team functionality toggle (true or false)
-VITE_TEAM_USE=true
+VITE_TEAM_USE=false
 
 # GitHub integration to pull Automation Framework documentation
 VITE_GITHUB_AUTOMATION_FRAMEWORK_URL=#https://github.com/diegomtylop/playwright_demo/
