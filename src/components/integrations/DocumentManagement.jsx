@@ -443,6 +443,8 @@ function DocumentManagement() {
                 isGlobalDocument={isGlobalDocument}
                 setIsGlobalDocument={setIsGlobalDocument}
                 selectedTeam={selectedTeam}
+                filteredDocuments={filteredDocuments}
+                documents={documents}
               />
               <DocumentListView
                 documents={documents}

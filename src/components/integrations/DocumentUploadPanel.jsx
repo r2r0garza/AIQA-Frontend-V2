@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   Box,
   Button,
@@ -10,7 +10,8 @@ import {
   Select,
   CircularProgress,
   FormControlLabel,
-  Switch
+  Switch,
+  Alert
 } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
@@ -40,22 +41,52 @@ function DocumentUploadPanel({
   setCustomDocumentType,
   isGlobalDocument,
   setIsGlobalDocument,
-  selectedTeam
+  selectedTeam,
+  filteredDocuments,
+  documents
 }) {
+  // Check if the selected agent already has a template
+  const hasExistingTemplate = useMemo(() => {
+    if (!selectedCategory || selectedCategory.type !== 'agent' || !documents) {
+      return false;
+    }
+    
+    return documents.some(doc => doc.document_type === selectedCategory.name);
+  }, [selectedCategory, documents]);
   return (
     <>
+      {selectedCategory && selectedCategory.type === 'agent' && hasExistingTemplate && (
+        <Alert 
+          severity="info" 
+          sx={{ 
+            mb: 2, 
+            bgcolor: 'rgba(33, 150, 243, 0.1)', 
+            color: '#90caf9',
+            border: '1px solid rgba(33, 150, 243, 0.3)',
+            '& .MuiAlert-icon': {
+              color: '#90caf9'
+            }
+          }}
+        >
+          This agent already has a template. Only one template per agent is supported.
+        </Alert>
+      )}
       <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
         <Button
           variant="outlined"
           component="label"
           startIcon={<UploadFileIcon />}
-          disabled={uploading}
+          disabled={uploading || (selectedCategory?.type === 'agent' && hasExistingTemplate)}
           sx={{ 
             color: '#fff', 
             borderColor: 'rgba(255,255,255,0.3)',
             '&:hover': {
               borderColor: '#fff',
               backgroundColor: 'rgba(255,255,255,0.1)'
+            },
+            '&.Mui-disabled': {
+              color: 'rgba(255,255,255,0.3)',
+              borderColor: 'rgba(255,255,255,0.1)'
             }
           }}
         >
@@ -65,6 +96,7 @@ function DocumentUploadPanel({
             hidden
             ref={fileInputRef}
             onChange={handleFileChange}
+            disabled={selectedCategory?.type === 'agent' && hasExistingTemplate}
           />
         </Button>
         {selectedCategory && selectedCategory.type === 'general' && (
@@ -149,7 +181,11 @@ function DocumentUploadPanel({
                 size="small" 
                 variant="contained" 
                 onClick={handleUploadDocument}
-                disabled={uploading || (showDocumentTypeField && !selectedDocumentType && !customDocumentType)}
+                disabled={
+                  uploading || 
+                  (showDocumentTypeField && !selectedDocumentType && !customDocumentType) ||
+                  (selectedCategory?.type === 'agent' && hasExistingTemplate)
+                }
                 startIcon={uploading ? <CircularProgress size={16} /> : null}
               >
                 {uploading ? 'Uploading...' : 'Upload'}

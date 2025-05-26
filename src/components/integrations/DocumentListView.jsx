@@ -16,6 +16,7 @@ import {
 import FolderIcon from '@mui/icons-material/Folder';
 import DescriptionIcon from '@mui/icons-material/Description';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { AGENTS } from '../../constants';
 
 // Check if team functionality is enabled from environment variable
 const TEAM_USE_ENABLED = import.meta.env.VITE_TEAM_USE !== 'false';
@@ -44,9 +45,15 @@ function DocumentListView({
 
   // If in general category and no folder selected, show folder structure
   if (selectedCategory && selectedCategory.id === 'general' && !selectedDocumentType) {
-    // Group by document_type
+    // Filter out agent templates and group by document_type
     const typesWithDocs = {};
-    documents.forEach(doc => {
+    
+    // Filter documents to exclude agent templates
+    const generalDocs = documents.filter(doc => 
+      !AGENTS.some(agent => doc.document_type.includes(agent.name))
+    );
+    
+    generalDocs.forEach(doc => {
       if (!typesWithDocs[doc.document_type]) {
         typesWithDocs[doc.document_type] = [];
       }
