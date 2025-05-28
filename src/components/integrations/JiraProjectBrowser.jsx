@@ -66,9 +66,17 @@ function JiraProjectBrowser({ open, onClose, onSelect }) {
     setView('issues');
     setLoading(true);
     setError('');
-    
+
+    // Defensive: try both project.key and project.id
+    const projectKey = project.key || project.id || '';
+    if (!projectKey) {
+      setError('Project key is missing.');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const result = await fetchJiraIssues(project.key);
+      const result = await fetchJiraIssues(projectKey);
       if (result.success) {
         setIssues(result.data);
       } else {
