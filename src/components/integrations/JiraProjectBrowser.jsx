@@ -351,7 +351,11 @@ function JiraProjectBrowser({ open, onClose, onSelect }) {
             Assignee:
           </Typography>
           <Typography sx={{ color: '#fff' }}>
-            {selectedIssue.assignee || 'Unassigned'}
+            {typeof selectedIssue.assignee === 'string'
+              ? selectedIssue.assignee
+              : (selectedIssue.assignee && selectedIssue.assignee.displayName)
+                ? selectedIssue.assignee.displayName
+                : 'Unassigned'}
           </Typography>
         </Box>
         

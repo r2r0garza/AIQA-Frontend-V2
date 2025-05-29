@@ -177,7 +177,7 @@ export function JiraProvider({ children }) {
         }
         let issues = await res.json();
         // Debug: log the raw response for troubleshooting
-        // console.log('Jira API project items response:', issues);
+        console.log('Jira API project items response:', issues);
 
         // Defensive: handle array or object response
         if (Array.isArray(issues)) {
@@ -276,15 +276,24 @@ export function JiraProvider({ children }) {
         }
         const issue = await res.json();
         // Debug: log the raw issue details response
-        // console.log('Jira API issue details response:', issue);
+        console.log('Jira API issue details response:', issue);
 
         // Map backend fields to expected frontend fields
+        let assigneeName = '';
+        if (issue.assignee && typeof issue.assignee === 'object') {
+          assigneeName = issue.assignee.displayName || 'Unassigned';
+        } else if (typeof issue.assignee === 'string') {
+          assigneeName = issue.assignee;
+        } else {
+          assigneeName = 'Unassigned';
+        }
+
         const mappedIssue = {
           summary: issue.summary || '',
-          key: issue.key || issue.project_name || '', // fallback to empty string if not present
+          key: issue.key || '', // fallback to empty string if not present
           type: issue.type || issue.issuetype_name || '',
           status: issue.status || issue.statusCategory_name || '',
-          assignee: issue.assignee || '',
+          assignee: assigneeName,
           description: issue.description || issue.description_text || '',
           // include all other fields for safety
           ...issue
