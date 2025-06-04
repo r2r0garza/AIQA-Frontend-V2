@@ -284,7 +284,7 @@ function AgentSidebar({
               mb: 2
             }}>
               <LocalOfferIcon sx={{ fontSize: '0.9rem', mr: 1 }} />
-              Product Version: 0.0.1
+              Product Version: 2.0.0
             </Box>
             
             {/* Tech background image with gradient fade */}

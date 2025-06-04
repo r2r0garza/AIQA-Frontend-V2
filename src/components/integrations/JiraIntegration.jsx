@@ -60,10 +60,10 @@ function JiraIntegration({ onIssueSelect }) {
     }
     
     // Validate Jira URL format
-    if (!jiraUrl.match(/^https?:\/\/[a-zA-Z0-9-]+\.atlassian\.net\/?$/)) {
-      setFormError('Invalid Jira URL format. Example: https://your-domain.atlassian.net');
-      return;
-    }
+    //if (!jiraUrl.match(/^https?:\/\/[a-zA-Z0-9-]+\.atlassian\.net\/?$/)) {
+      //setFormError('Invalid Jira URL format. Example: https://your-domain.atlassian.net');
+      //return;
+    //}
     
     setFormError('');
     
